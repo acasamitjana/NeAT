@@ -3,8 +3,8 @@ Processor for Support Vector Regression fitters
 """
 from numpy import zeros
 
-from vneat.Fitters.SVR import PolySVR, GaussianSVR
-from vneat.Processors.Processing import Processor
+from neat.Fitters.SVR import PolySVR, GaussianSVR
+from neat.Processors.Processing import Processor
 
 
 class PolySVRProcessor(Processor):

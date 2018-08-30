@@ -1,6 +1,6 @@
 import numpy as np
 
-from Processors import GLMProcessor as GLMP
+from neat.Processors import GLMProcessor as GLMP
 
 
 class Test(GLMP):

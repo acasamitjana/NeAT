@@ -3,10 +3,10 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-from Fitters.CurveFitting import CurveFitter
-from Fitters.SVR import PolySVR as PSVR
-from Utils.DataLoader import getGMData, getFeatures
-from Utils.Subject import Subject
+from neat.Fitters.CurveFitting import CurveFitter
+from neat.Fitters.SVR import PolySVR as PSVR
+from neat.Utils.DataLoader import getGMData, getFeatures
+from neat.Utils.Subject import Subject
 
 if __name__ == "__main__":
 

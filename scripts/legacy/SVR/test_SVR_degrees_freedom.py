@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from Fitters.SVR import GaussianSVR as GSVR
+from neat.Fitters.SVR import GaussianSVR as GSVR
 
 """ FUNCTIONS """
 

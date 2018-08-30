@@ -14,12 +14,6 @@ from neat.Visualization.GUIVisualizer import GUIVisualizer, GUIVisualizer_surfac
 
 if __name__ == '__main__':
 
-    HEMI_CHOICE = {
-        'left': 'lh',
-        'right': 'rh',
-        '': ''
-    }
-
     """ CLI ARGUMENTS """
     arguments_parser = ArgumentParser(description='Shows the graphical visualizer to display a statistical map '
                                                   'and the curves for the selected voxel.')
@@ -30,6 +24,9 @@ if __name__ == '__main__':
     arguments_parser.add_argument('dirs', nargs="+",
                                   help='Specify one or more directories within the results directory specified in the '
                                        'configuration file from which the fitting parameters should be loaded.')
+
+    arguments_parser.add_argument('bg_image', type=str,
+                                  help='Path to the background image )e.g: sulc, curv, etc...')
 
     arguments_parser.add_argument('--map',
                                   help='Path relative to the output directory specified in the configuration file'
@@ -50,12 +47,9 @@ if __name__ == '__main__':
                                        "useful for statistical based measures (F-stat, p-values, Z-scores, etc.),"
                                        "but you can use 'rainbow' for labeled maps")
 
-    arguments_parser.add_argument('--hemi', default='', choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+    arguments_parser.add_argument('--hemi', type=str,
+                                  help='Optional. Indicate the hemisphere in case of surface analysis')
 
-
-    arguments_parser.add_argument('--bg_image', type=str,
-                                  help='Mandatory for surface visualization. Absolute path to the background image'
-                                       'registered to the template (e.g: sulc, curv, etc...)')
 
     arguments_parser.add_argument('--n-points', default=100, type=int,
                                   help='Number of points used to plot the curves. More points means a smoother curve '
@@ -70,8 +64,7 @@ if __name__ == '__main__':
     atlas_dict_name = arguments.atlas_labels
     mask_name = arguments.mask
     color_map = arguments.colormap
-    hemi = HEMI_CHOICE[arguments.hemi]
-    bg_image = arguments.bg_image
+    hemi = arguments.hemi
 
 
     """ LOAD DATA USING DATALOADER """
@@ -83,10 +76,10 @@ if __name__ == '__main__':
     if type_data == 'vol':
         visualizer = GUIVisualizer(template=template, affine=affine_matrix, num_points=n_points)
     else:
-        if hemi is '' or bg_image is None:
+        if hemi is None:
             raise ValueError('Please, specify the hemisphere of the analysis')
         visualizer = GUIVisualizer_surface(template=template, affine=affine_matrix,
-                                           hemisphere=arguments.hemi, bg_image=bg_image, num_points=n_points)
+                                           hemisphere=hemi, num_points=n_points)
 
 
     """ LOAD STATISTICAL MAP """
@@ -113,11 +106,15 @@ if __name__ == '__main__':
         if color_map == 'rgb':
             masked_map_data = np.ma.masked_equal(np.sum(map_data,axis=-1), 0.0).astype(int)
             mask = np.invert(masked_map_data.mask[..., np.newaxis]).astype(int)
+            print(np.unique(mask))
+            print(mask.shape)
+
             masked_map_data = np.concatenate((map_data, mask),axis=-1)
             # masked_map_data = np.concatenate((map_data, masked_map_data.mask[..., np.newaxis]),axis=-1)
         else:
             masked_map_data = np.ma.masked_equal(map_data, 0.0)
         # Add it to the visualizer
+        print(masked_map_data.shape)
 
         visualizer.add_image(masked_map_data, colormap=color_map)
 
@@ -157,7 +154,7 @@ if __name__ == '__main__':
     print()
     for directory in dirs:
         full_path = path.join(output_dir, directory)
-        pathname = glob(path.join(full_path, hemi+'*prediction_parameters.mha'))
+        pathname = glob(path.join(full_path, '*prediction_parameters' + results_io.extension))
 
         # If there is no coincidence, ignore this directory
         if len(pathname) == 0:

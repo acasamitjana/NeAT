@@ -9,7 +9,7 @@ import matplotlib.pyplot as plot
 import numpy as np
 from matplotlib import cm
 
-from vneat.CrossValidation import score_functions
+from neat.CrossValidation import score_functions
 plot.switch_backend('Agg')
 
 class GridSearch(object):

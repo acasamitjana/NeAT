@@ -6,10 +6,10 @@ from numpy import float64
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import splev
 from sklearn.linear_model import LinearRegression as LR
-import statsmodels.api as sm
 from patsy import dmatrix
 import pandas as pd
-from vneat.Fitters.CurveFitting import AdditiveCurveFitter
+
+from neat.Fitters.CurveFitting import AdditiveCurveFitter
 
 
 

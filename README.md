@@ -1,4 +1,4 @@
-# VNeAT 
+# NeAT
 
 [![Build Status](https://travis-ci.com/imatge-upc/VNeAT.svg?token=YFLyw5anRKL6kDtHyQ5n&branch=master)](https://travis-ci.com/imatge-upc/VNeAT)
 
@@ -11,18 +11,18 @@ the voxel level.
 | :---: | :---: |
 | Santi Puch Giner | Author |
 | Asier Aduriz Berasategi | Author |
-| Adrià Casamitjana Díaz | Contributor |
+| Adrià Casamitjana Díaz | Author |
 | Verónica Vilaplana Besler | Advisor (UPC) |
 | Juan Domingo Gispert | Advisor (PMF) |
 
 #### Institutions
 | [UPC (Universitat Politècnica de Catalunya)](http://www.upc.edu) | ![UPC-ETSETB logo](./assets/upc_etsetb.jpg) |
 | :---: | :---: |
-|**[PMF (Pasqual Maragall Foundation)](https://fpmaragall.org/en/)** | ![UPC-ETSETB logo](./assets/pasqual_maragall_foundation.png) |
+|**[BBRC (BarcelonaBeta Brain Research Center)](https://www.barcelonabeta.org)** | ![UPC-ETSETB logo](./assets/bbrc.jpg) |
 
 #### Publication
 
-This work has been accepted at the [NIPS 2016 Workshop on Machine Learning for Health](http://www.nipsml4hc.ws/posters).
+A preliminary version of this work has been accepted at the [NIPS 2016 Workshop on Machine Learning for Health](http://www.nipsml4hc.ws/posters).
 
 The workshop paper is available on [arXiv](https://arxiv.org/abs/161.00667), and the associated poster is available [here](https://drive.google.com/open?id=0ByrI9_WaU23FbmJtR09DT0xsWGs).
 
@@ -57,14 +57,14 @@ In order to cite this work please use the following BibTeX code:
 
 The interaction between the user and the software is done through a Command Line Interface (CLI). 
 
-As the toolbox is written in Python you must have **python 2.7** previously 
+As the toolbox is written in Python you must have **python 3.4** previously
 installed in order to use it (instructions on how to install python can be found 
 [here](https://www.python.org/downloads/)).
 
 First you just have to clone this repository:
 ```
-$ git clone https://github.com/imatge-upc/VNeAT.git
-$ cd VNeAT
+$ git clone https://github.com/acasamitjana/NeAT.git
+$ cd NeAT
 ```
 After that you must install all the dependencies, specified in the __requirements.txt__ file:
 ```
@@ -73,7 +73,7 @@ $ pip install -r requirements.txt
 After all that is done you can execute the scripts using the python executable. 
 This is the pattern that you'll be using to execute the scripts:
 ```
-$ python vneat-script.py config_file --options
+$ python neat-script.py config_file --options
 ```
 
 <div id='requirements'/>
@@ -83,7 +83,7 @@ $ python vneat-script.py config_file --options
 In order for this toolbox to properly parse and obtain the data to be processed there are some requirements that should
  be fulfilled. These requirements are the following: 
 
-- **Excel file (.xls)** with all the metadata.
+- **Excel file (.xls, .csv)** with all the metadata.
 
     This file should contain the unique identifier for each subject, an optional 
     categorical value for each subject, and one or several fields with metadata to be used as predictor and/or correctors.
@@ -94,14 +94,16 @@ In order for this toolbox to properly parse and obtain the data to be processed 
     ![Excel file format](./assets/excel_format_example.png)
     
 
-- **Folder** containing all the **NIFTIs** (gzipped or not).
+- **Folder** containing all the preprocessed **medical images** (in the acceptable formats).
 
-    This folder must containt one NIFTI file for each subject, and it should be identified with the unique
+    This folder must containt one IMAGE for each subject, and it should be identified with the unique
     identifier specified in the excel file, with the option to have a study prefix for everyone of them.
+
+    Formats available: .nii, .nii.gz, .mgh, .mgz, .thickness
     
     ![Nifti folder example](./assets/nifti_folder_example.png)
     
-- **Template** file in NIFTI format.
+- **Template** file in acceptable format.
 
     The template into which all the subjects have been registered (for instance, to compute the VBM
     in MNI space).
@@ -133,6 +135,7 @@ particular study:
 - Generalized Additive Models (GAM)
     - Polynomial smoother
     - Splines smoother
+    - Regression splines: b-splines and natural cubic splines.
 - Support Vector Regression with linear kernel and polynomial feature expansion (PolySVR)
 - Support Vector Regression with Gaussian kernel (GaussianSVR)
 

@@ -35,6 +35,8 @@ def file_writer_from_extension(extension):
         return NiftiWriter
     elif '.mgz' in extension or '.mgh' in extension:
         raise ValueError('MGZ reader not implemented, yet')
+    elif '.mha' in extension:
+        return ParameterWriter
     else:
         return SurfaceWriter
 
@@ -54,11 +56,82 @@ def read_surface(filename):
     elif extension in ['inflated', 'pial', 'white']:
         coords, faces = io.read_geometry(filename)
         return coords, faces
-
     else:
         return io.read_morph_data(filename)
 
+def write_surface(image,filename):
 
+    extension = filename.split('.')[-1]
+
+    if extension == 'mha':
+        sitk.WriteImage(image,filename)
+
+    elif extension == 'annot':
+        raise ValueError('Reader for extensions \'label\' not yet implemented')
+
+    elif extension == 'label':
+        raise ValueError('Reader for extensions \'inflated\', \'pial\', \'white\' not yet implemented')
+
+    elif extension in ['inflated', 'pial', 'white']:
+        io.read_geometry(filename,image[0],image[1])
+    else:
+        return io.write_morph_data(filename,image)
+
+
+class ParameterReader:
+    def __init__(self, filename):
+        self.filename = filename
+        self.img = sitk.ReadImage(filename)
+
+    def chunks(self, mem_usage=None):
+        if mem_usage != None:
+            self.mem_usage = mem_usage
+
+        d = 1.0
+        for x in self.dims[3:]:
+            d *= x
+        nelems = self.mem_usage * (2 ** 17) / d  # (number of MBytes x 2**20 bytes/MB x 8 bits/byte)/(64 bits/elem)
+
+        sx, sy, sz = self.dims[:3]
+
+        dx = nelems / (sy * sz)
+        if dx > 1:
+            dx = int(dx)
+            dy = sy
+            dz = sz
+        else:
+            dx = 1
+            dy = nelems / sz
+            if dy > 1:
+                dy = int(dy)
+                dz = sz
+            else:
+                dy = 1
+                dz = nelems
+
+        x1, y1, z1 = self.coords
+        x2, y2, z2 = (x1 + sx, y1 + sy, z1 + sz)
+
+        for x in range(x1, x2, dx):
+            for y in range(y1, y2, dy):
+                for z in range(z1, z2, dz):
+                    f = nib.load(self.filename)
+                    chunk = Region((x, y, z),
+                                   f.get_data('unchanged')[x:min(x2, x + dx), y:min(y2, y + dy), z:min(z2, z + dz)])
+                    del f
+                    yield chunk
+
+    def __iter__(self):
+        return self.chunks()
+
+    def affine(self):
+        f = nib.load(self.filename)
+        aff = f.affine
+        del f
+        return aff
+
+    def get_data(self):
+        return sitk.GetArrayFromImage(self.img)
 
 
 class NiftiReader:
@@ -220,7 +293,6 @@ class SurfaceReader:
         else:
             self.dims = f.shape
 
-        print(self.dims)
         del f
         if x2 == None:
             x2 = self.dims[0]
@@ -228,8 +300,8 @@ class SurfaceReader:
         assert x1 < x2
         self.mem_usage = 0.5
 
-        x1 = map(lambda a: max(a, 0), [x1])[0]
-        x2 = map(min, zip(self.dims, [x2]))[0]
+        x1 = list(map(lambda a: max(a, 0), [x1]))[0]
+        x2 = list(map(min, zip(self.dims, [x2])))[0]
 
 
         self.dims = (x2 - x1,) + self.dims[1:]
@@ -271,6 +343,7 @@ class SurfaceReader:
         return read_surface(self.filename)
 
 
+
 class NiftiWriter(niiFile):
 
     @staticmethod
@@ -306,7 +379,7 @@ class SurfaceWriter(object):
         dname = dirname(filepath)
 
         filename = join(dname, bname)
-        sitk.WriteImage(self.img, filename)
+        write_surface(self.img, filename)
 
         # io.write_morph_data(filename, self.data, *args, **kwargs)
 
@@ -316,6 +389,23 @@ class SurfaceWriter(object):
         except AttributeError:
             return ()
 
+
+class ParameterWriter(object):
+
+    def __init__(self,data, *args, **kwargs):
+        if len(data.shape) > 1:
+            self.data = data
+        else:
+            self.data = data[:,np.newaxis]
+
+        self.img = sitk.GetImageFromArray(self.data)
+
+    def save(self, filepath):
+        bname = basename(filepath)
+        dname = dirname(filepath)
+
+        filename = join(dname, bname)
+        sitk.WriteImage(self.img, filename + '.mha')
 
 class Results(object):
 

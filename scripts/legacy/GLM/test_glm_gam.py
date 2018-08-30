@@ -2,10 +2,10 @@ import sys
 
 sys.path.insert(1, 'C:\\Users\\upcnet\\Repositoris\\neuroimatge\\nonlinear2')
 sys.stdout.flush()
-from Utils.ExcelIO import ExcelSheet as Excel
-from Processors import PolyGLMProcessor as PGLMP
-from Processors import GAMProcessor
-from Utils.Subject import Subject
+from neat.Utils.ExcelIO import ExcelSheet as Excel
+from neat.Processors import PolyGLMProcessor as PGLMP
+from neat.Processors import GAMProcessor
+from neat.Utils.Subject import Subject
 from os.path import join, isfile, basename
 from os import listdir
 import nibabel as nib

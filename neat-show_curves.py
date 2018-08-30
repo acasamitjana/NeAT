@@ -8,7 +8,7 @@ from os import path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from vneat import helper_functions
+from neat import helper_functions
 
 if __name__ == '__main__':
 
@@ -27,6 +27,11 @@ if __name__ == '__main__':
         '>',
         '<'
     ]
+    HEMI_CHOICE = {
+        'left': 'lh',
+        'right': 'rh',
+        '': ''
+    }
 
     """ CLI ARGUMENTS """
     arguments_parser = ArgumentParser(description='Shows the curves for the fitting results computed by '
@@ -47,15 +52,22 @@ if __name__ == '__main__':
                                        'same fitter or not, so you must ensure this to have '
                                        'coherent results.')
 
+    arguments_parser.add_argument('--hemi', default='', choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+
     arguments = arguments_parser.parse_args()
     config_file = arguments.configuration_file
     dirs = arguments.dirs
     compare = arguments.compare
-    print(dirs)
+    hemi = HEMI_CHOICE[arguments.hemi]
+
 
     """ LOAD DATA USING DATALOADER """
     subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+
+    if type_data == 'surf':
+        if hemi == '':
+            raise ValueError('Please, specify the hemisphere for surface-based analysis. See arguments.')
 
 
     # Lists to store the necessary data to show the curves
@@ -69,7 +81,7 @@ if __name__ == '__main__':
         print('Loading results data...')
         print()
         # Find prediction parameters inside results folder
-        pathname = path.join(output_dir, '**', '*prediction_parameters' + results_io.extension)
+        pathname = path.join(output_dir, '**', hemi+'*prediction_parameters.mha' )
         for p in glob(pathname):
             n, _, pred_p, corr_p, proc = helper_functions.get_results_from_path(
                 p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
@@ -85,7 +97,7 @@ if __name__ == '__main__':
         print()
         for directory in dirs:
             full_path = path.join(output_dir, directory)
-            pathname = glob(path.join(full_path, '*prediction_parameters' + results_io.extension))
+            pathname = glob(path.join(full_path, hemi+'*prediction_parameters.mha'))
             # If there is no coincidence, ignore this directory
             if len(pathname) == 0:
                 print('{} does not exist or contain any result.'.format(full_path))

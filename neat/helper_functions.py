@@ -5,8 +5,9 @@ import numpy as np
 from scipy.stats import norm
 from sklearn.cluster import KMeans
 
-from vneat.Processors.MixedProcessor import MixedProcessor
-from vneat.Utils.DataLoader import DataLoader
+from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Utils.DataLoader import DataLoader
+from neat.Utils.niftiIO import ParameterReader
 
 
 def load_data_from_config_file(config_file):
@@ -184,9 +185,9 @@ def get_results_from_path(pred_params_path, results_io, subjects, predictors_nam
     # (correction parameters and user defined parameters)
     # and the name of the fitting method
     folder_path, prediction_params_name = path.split(pred_params_path)
-    prefix = prediction_params_name.replace('prediction_parameters' + results_io.extension, '')
+    prefix = prediction_params_name.replace('prediction_parameters.mha', '')
     prediction_params_path = pred_params_path
-    correction_params_path = path.join(folder_path, ('{}correction_parameters' + results_io.extension).format(prefix))
+    correction_params_path = path.join(folder_path, ('{}correction_parameters.mha').format(prefix))
     udp_path = path.join(folder_path, '{}user_defined_parameters.txt'.format(prefix))
 
     # Try to infer whether there is a curve for a category or not by folder name
@@ -206,8 +207,8 @@ def get_results_from_path(pred_params_path, results_io, subjects, predictors_nam
     with open(udp_path, 'rb') as udp_file:
         udp = eval(udp_file.read())
 
-    pred_parameters = results_io.loader(prediction_params_path).get_data()
-    corr_parameters = results_io.loader(correction_params_path).get_data()
+    pred_parameters = ParameterReader(prediction_params_path).get_data()
+    corr_parameters = ParameterReader(correction_params_path).get_data()
 
     # Create MixedProcessor and keep it
     processor = MixedProcessor(

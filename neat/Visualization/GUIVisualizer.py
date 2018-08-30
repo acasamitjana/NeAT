@@ -167,14 +167,19 @@ class GUIVisualizer(object):
 
         x, y, z = new_voxel
 
-        if self._images[-1][1] != 'rgb':
-            cmap = cm.get_cmap(self._images[-1][1])
-            n_colors_list = [0] + [i*int(cmap.N/(len(self._processors)-1)) - 1 for i in range(1,len(self._processors))]
-        else:
-            cmap = lambda x: [(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0)][x]
-            n_colors_list = list(range(len(self._processors)))
+        if len(self._images) > 0:
+            if self._images[-1][1] != 'rgb':
+                cmap = cm.get_cmap(self._images[-1][1])
+                n_colors_list = [0] + [i*int(cmap.N/(len(self._processors)-1)) - 1 for i in range(1,len(self._processors))]
+            else:
+                cmap = lambda x: [(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0)][x]
+                n_colors_list = list(range(len(self._processors)))
 
-        colors = [cmap(i) for i in n_colors_list]
+            colors = [cmap(i) for i in n_colors_list]
+
+        else:
+
+            colors = ['b','r','g','k','y','c','m',]
 
         if self._correction_processor is not None:
             correction_processor, correction_parameters = self._correction_processor
@@ -297,13 +302,17 @@ class GUIVisualizer(object):
 
 
 class GUIVisualizer_surface(object):
-    def __init__(self, template, affine, num_points=100, template_cmap='gray'):
-        self._template = template
+    def __init__(self, template, affine, hemisphere, bg_image, num_points=100, template_cmap='gray'):
+
         if not isinstance(template, tuple):
             raise ValueError('Please, specify a proper template with extension [\'inflated\', \'pial\', \'white\'].')
+        else:
+            self._template = list(template)
 
         self._template_shape = template[0].shape[0]
+        self._bg_image = bg_image
         self._affine = affine
+        self._hemisphere = hemisphere
         self._num_points = num_points
         self._template_cmap = template_cmap
         self._images = []
@@ -380,28 +389,58 @@ class GUIVisualizer_surface(object):
 
         self.__update_views__(self.__compute_new_vertex_coords__(event))
 
-    def __image_cut__(self, vertex):
-        return list(self._template)
+    def __lateral_cut__(self):
+        return self._rgba_image, 'lateral'
+
+    def __medial_cut__(self):
+        return self._rgba_image, 'medial'
+
+    def __dorsal_cut__(self):
+        return self._rgba_image, 'dorsal'
+
+    def __ventral_cut__(self):
+        return self._rgba_image, 'ventral'
+
+    def __anterior_cut__(self):
+        return self._rgba_image, 'anterior'
+
+    def __posterior_cut__(self):
+        return self._rgba_image, 'posterior'
 
     def __update_views__(self, new_vertex):
+
         if new_vertex is None or new_vertex == self._current_vertex:
             return
 
-        axes = (self._ax[0], self.__image_cut__, cm.get_cmap(self._template_cmap))
-        # xydata = self.__compute_xydata__(new_vertex)
+        axes = [(self._ax[0], self.__lateral_cut__),
+                # (self._ax[1], self.__medial_cut__),
+                # (self._ax[2], self.__dorsal_cut__),
+                # (self._ax[3], self.__ventral_cut__),
+                # (self._ax[4], self.__anterior_cut__),
+                # (self._ax[5], self.__posterior_cut__)
+                ]
 
-        for i in range(len(self._images)):
-            ax, bg_cut, bg_cmap = axes
-            fg_cut, fg_cmap = self._images[i]
+        for i in range(len(axes)):
+            ax, cut = axes[i]
             ax.clear()
 
-            plotting.plot_surf(bg_cut(new_vertex), surf_map = fg_cut, cmap=fg_cmap, axes=ax)
-            #
-            # (xdata,), (width, height) = xydata
-            # ax.add_line(mplline(xdata=[0, width], ydata=[ydata, ydata], linewidth=1, color='green'))
-            # ax.add_line(mplline(xdata=[xdata, xdata], ydata=[0, height], linewidth=1, color='green'))
+            stat_map, view = cut()
 
-        self._ax[1].clear()
+            plotting.plot_surf_stat_map(self._template, stat_map=stat_map,
+                                        hemi=self._hemisphere, view=view, colorbar=True,
+                                        bg_map=self._bg_image,
+                                        bg_on_data=True,
+                                        cmap=self._rgba_cmap, threshold=.5,
+                                        title='Threshold and colormap',
+                                        axes=ax)
+
+            ax.tick_params(direction='in')
+            for item in ax.get_xticklabels():
+                item.set_fontsize(8)
+            for item in ax.get_yticklabels():
+                item.set_fontsize(8)
+
+        self._ax[-1].clear()
 
         x = new_vertex
 
@@ -413,7 +452,8 @@ class GUIVisualizer_surface(object):
             self._ax[1].plot(correction_processor.predictors[:, 0], cdata[:, 0], 'bo')
 
         for processor, prediction_parameters, correction_parameters, label in self._processors:
-            cdata = processor.corrected_values(correction_parameters,x1=x, x2=x + 1)
+
+            cdata = processor.corrected_values(correction_parameters, x1=x, x2=x + 1)
             self._ax[1].plot(processor.predictors[:, 0], cdata[:, 0], 'bo', color=colors[0])
 
             axis, curve = processor.curve(prediction_parameters,x1=x, x2=x + 1, tpoints=self._num_points )
@@ -435,59 +475,48 @@ class GUIVisualizer_surface(object):
 
         self._current_vertex = new_vertex
 
+
     def show(self):
         self._figure = plt.figure()
 
-        outer_padding = (0.04, 0.04, 0.04, 0.04)  # left, right, bottom, up
-        inner_padding = (0.02, 0.02)  # horizontal, vertical
-
-        # total_width = self._template_shape[0]# + self._template_shape[1]
-        # total_height = self._template_shape[0]# + self._template_shape[1]
-
-        effective_width = 1. - outer_padding[0] - outer_padding[1] - inner_padding[0]
-        effective_height = 1. - outer_padding[2] - outer_padding[3] - inner_padding[1]
-
-        # width1 = self._template_shape[0] * effective_width / total_width
-        # width2 = effective_width - width1
-        #
-        # height1 = self._template_shape[0] * effective_height / total_height
-        # height2 = effective_height - height1
-
         self._ax = np.array([
-            self._figure.add_subplot(2, 1, 1, projection='3d'),
-            self._figure.add_subplot(2, 1, 2),
+            self._figure.add_subplot(4, 2, 1, projection='3d'),
+            self._figure.add_subplot(4, 2, 2),
+            self._figure.add_subplot(4, 2, 3),
+            self._figure.add_subplot(4, 2, 4),
+            self._figure.add_subplot(4, 2, 5),
+            self._figure.add_subplot(4, 2, 6),
+            self._figure.add_subplot(4, 2, 7),
         ])
 
-        self._ax[0].set_xticks([])
-        self._ax[0].set_yticks([])
+        for ax in self._ax[:-1]:
+            ax.set_xticks([])
+            ax.set_yticks([])
 
-        #
-        # for img, cmap in self._images:
-        #     cmap = cm.get_cmap(cmap)
-        #     img = cmap(img)
-        #
-        #     Cfg, Afg = img[:, :, :, :3], img[:, :, :, 3]
-        #     Cbg, Abg = self._rgba_image[:, :, :, :3], self._rgba_image[:, :, :, 3]
-        #
-        #     Ar = Afg + Abg * (1 - Afg)
-        #     Cr = np.zeros(Cbg.shape)
-        #     for c in range(Cr.shape[3]):
-        #         Cr[:, :, :, c] = Cfg[:, :, :, c] * Afg + Cbg[:, :, :, c] * Abg * (1 - Afg) / Ar
-        #
-        #     self._rgba_image[:, :, :, :3] = Cr
-        #     self._rgba_image[:, :, :, 3] = Ar
+
+        self._rgba_image = np.zeros((self._template_shape,1))
+        self._rgba_cmap = self._template_cmap
+
+
+        if self._images:
+            for img, cmap in self._images:
+                self._rgba_image += img
+                self._rgba_cmap = cmap
+
+
+            self._rgba_image /= len(self._images)
 
         self._current_vertex = 0
 
         self._figure.canvas.mpl_connect('button_press_event', self.__button_press_event__)
         self._figure.canvas.mpl_connect('motion_notify_event', self.__motion_notify_event__)
 
-        new_vertex = self._template_shape/2
+        new_vertex = int(self._template_shape/2)
 
         self.__update_views__(new_vertex)
 
-        plt.show()
-
+        # plt.show()
+        plt.savefig('/work/acasamitjana/NeAT/surface_proves/visualization_v1.png')
 
 class GUIVisualizer_latent(GUIVisualizer):
 
@@ -526,7 +555,6 @@ class GUIVisualizer_latent(GUIVisualizer):
             if hasattr(x_rotations,'shape'):
                 M = x_rotations[0].shape[0]
                 for it_nc in range(x_rotations.shape[0]):
-                    print(np.squeeze(x_rotations[it_nc]).shape)
                     self._ax[1, 1].barh(np.arange(M) + 0.2*it_proc, np.squeeze(x_rotations[it_nc]), align='center',
                                         color = colors[it_proc], ecolor='black')
 

@@ -7,8 +7,8 @@ from os import path
 
 import nibabel as nib
 
-from vneat import helper_functions
-from vneat.FitScores.FitEvaluation import aic, fstat, ftest, mse, prss, r2, vnprss
+from neat import helper_functions
+from neat.FitScores.FitEvaluation import aic, fstat, ftest, mse, prss, r2, vnprss
 
 if __name__ == '__main__':
 
@@ -23,6 +23,11 @@ if __name__ == '__main__':
         'vnprss': vnprss
     }
 
+    HEMI_CHOICE = {
+        'left': 'lh',
+        'right': 'rh',
+        '':''
+    }
 
     """ CLI ARGUMENTS """
     arguments_parser = ArgumentParser(description='Computes statistical maps for the fitting results '
@@ -68,6 +73,8 @@ if __name__ == '__main__':
     arguments_parser.add_argument('--labels', default=True,
                                   help='Produce a map that has one label per cluster.')
 
+    arguments_parser.add_argument('--hemi', default ='',choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+
     arguments = arguments_parser.parse_args()
     config_file = arguments.configuration_file
     method = arguments.method
@@ -79,15 +86,21 @@ if __name__ == '__main__':
     percentile_filter = arguments.percentile_filter
     gm_threshold = arguments.gm_threshold
     labels = arguments.labels
+    hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
     subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
+    if type_data == 'surf':
+        if hemi == '':
+            raise ValueError('Please, specify the hemisphere for surface-based analysis. See arguments.')
+
     """ LOAD RESULTS DATA """
     if dirs is None:
         # Find prediction parameters inside results folder
-        pathname = path.join(output_dir, '**', '*prediction_parameters'+results_io.extension)
+        pathname = path.join(output_dir, '**', hemi+'*prediction_parameters.mha')
+        print(pathname)
         for p in glob(pathname):
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
                 p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
@@ -109,13 +122,13 @@ if __name__ == '__main__':
             print('Storing fitting results')
             folder_name = path.split(p)[0]
             for name, data in results:
-                full_file_path = path.join(folder_name, name+results_io.extension)
+                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension)
                 res_writer = results_io.writer(data, affine_matrix)
                 res_writer.save(full_file_path)
     else:
         for directory in dirs:
             full_path = path.join(output_dir, directory)
-            pathname = glob(path.join(full_path, '*prediction_parameters'+results_io.extension))
+            pathname = glob(path.join(full_path, hemi+'*prediction_parameters.mha'))
             # If there is no coincidence, ignore this directory
             if len(pathname) == 0:
                 print('{} does not exist or contain any result.'.format(full_path))
@@ -143,7 +156,7 @@ if __name__ == '__main__':
             print('Storing fitting results')
             folder_name = path.split(pathname[0])[0]
             for name, data in results:
-                full_file_path = path.join(folder_name, name+results_io.extension)
+                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension)
                 res_writer = results_io.writer(data, affine_matrix)
                 res_writer.save(full_file_path)
     print()

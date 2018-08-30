@@ -3,9 +3,9 @@ import numpy as np
 import yaml
 
 from os.path import join, basename
-from vneat.Utils.Subject import Subject
-from vneat.Utils.ExcelIO import ExcelSheet, CSVSheet
-from vneat.Utils.niftiIO import file_reader_from_extension, file_writer_from_extension, Results, NiftiReader
+from neat.Utils.Subject import Subject
+from neat.Utils.ExcelIO import ExcelSheet, CSVSheet
+from neat.Utils.niftiIO import file_reader_from_extension, file_writer_from_extension, Results, NiftiReader
 
 
 class DataLoader(object):
@@ -250,10 +250,13 @@ class DataLoader(object):
             self._end = end
 
         # Get predictors
-        correctors = []
+        # correctors = [0]*len(subjects)
         if self._conf['model']['correctors_identifiers'] is not None:
             correctors_names = self._conf['model']['correctors_identifiers']
             correctors = list(map(lambda subject: subject.get_parameters(correctors_names), subjects))
+        else:
+            correctors = np.zeros((len(subjects),1))
+
         return np.asarray(correctors)
 
     def get_predictor_name(self):
@@ -282,7 +285,7 @@ class DataLoader(object):
         if self._conf['model']['correctors_identifiers'] is not None:
             return self._conf['model']['correctors_identifiers']
         else:
-            return []
+            return ['all-zeros']
 
     def get_processing_parameters(self):
         """

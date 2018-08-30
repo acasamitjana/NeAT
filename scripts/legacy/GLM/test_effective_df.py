@@ -1,5 +1,5 @@
 import numpy as np
-from nonlinear2.Utils.Subject import Subject
+from neat.Utils.Subject import Subject
 
 if __name__ == "__main__":
     # Voxel

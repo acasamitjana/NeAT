@@ -4,11 +4,11 @@ from sys import stdout
 import numpy as np
 from scipy.stats.distributions import  t
 
-from vneat.FitScores.FitEvaluation import evaluation_function as eval_func, FittingResults, \
+from neat.FitScores.FitEvaluation import evaluation_function as eval_func, FittingResults, \
     effect_strength as eff_size_eval, effect_strength_value as eff_size_value_eval, effect_type as eff_type_eval
-from vneat.Utils.Documentation import docstring_inheritor
-from vneat.Utils.Subject import Chunks
-from vneat.Utils.graphlib import NiftiGraph
+from neat.Utils.Documentation import docstring_inheritor
+from neat.Utils.Subject import Chunks
+from neat.Utils.graphlib import NiftiGraph
 
 import warnings
 
@@ -775,7 +775,7 @@ class Processor(object):
 
                 # Get chunk data and its dimensions
                 cdata = chunk.data
-                dx = cdata.shape[-1:]
+                dx = cdata.shape[-1]
 
                 # Fit the parameters to the data in the chunk
                 processor._processor_fitter.fit(cdata, *args, **kwargs)
@@ -884,6 +884,7 @@ class Processor(object):
                 """
             if x2 is None:
                 x2 = correction_parameters.shape[-1]
+
 
             correction_parameters = correction_parameters[:, x1:x2]
 
@@ -1119,6 +1120,7 @@ class Processor(object):
             subjects = [subjects[i] for i in category_indices]
             predictors = predictors[category_indices, :]
             correctors = correctors[category_indices, :]
+
         self._category = category
         self._processor_subjects = subjects
         # Load predictors and correctors' names
@@ -1999,6 +2001,10 @@ class Processor(object):
             show_text,
             lambda e: 'Could not match input with any of the options: ' + str(e)
         )
+
+
+class NullProcessor(Processor):
+    pass
 
 
 eval_func[Processor].bind(

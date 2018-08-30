@@ -1,7 +1,7 @@
 import numpy as np
 
-from vneat.Fitters.GLM import GLM, PolyGLM as PGLM
-from vneat.Processors.Processing import Processor
+from neat.Fitters.GLM import GLM, PolyGLM as PGLM
+from neat.Processors.Processing import Processor
 
 
 class GLMProcessor(Processor):
@@ -173,6 +173,12 @@ class GLMProcessor(Processor):
         return self._glmprocessor_glm
 
     def __post_process__(self, prediction_parameters, correction_parameters):
+        '''This function account for transformation of the predictors and the mismatch between computed
+        parameters and real value of the predictors for future __curve__ method.
+        Correctors are not post_processed since they are not required for __curve__ methods (and other
+        methods, like correct, already account for corrected covariates --> treat_data(corrector_fitter).
+        '''
+
         # Results without post-processing
         results = Processor.Results(prediction_parameters, correction_parameters)
         if self._glmprocessor_perp_norm_option >= 6:
@@ -205,12 +211,14 @@ class GLMProcessor(Processor):
         return Processor.Results(pparams, correction_parameters)
 
     def __pre_process__(self, prediction_parameters, correction_parameters, predictors, correctors):
-        # Get the prediction parameters for the original features matrix
+        # Get the prediction parameters for the original features matrix. It discards the correction parameters
+        # appended in the __post_process__
         if self._glmprocessor_perp_norm_option < 6:
             Kx2 = prediction_parameters.shape[0]
             pparams = prediction_parameters[:(Kx2 / 2)]
         else:
             pparams = prediction_parameters
+
         return pparams, correction_parameters
 
     def __user_defined_parameters__(self, fitter):
@@ -385,7 +393,7 @@ class PolyGLMProcessor(Processor):
         'Orthonormalize correctors',
         'Orthogonalize correctors',
         'Normalize correctors',
-        'Use correctors and predictors as they are'
+        'Use predictors and/or correctors as they are'
     ]
 
     _pglmprocessor_perp_norm_options_list = [

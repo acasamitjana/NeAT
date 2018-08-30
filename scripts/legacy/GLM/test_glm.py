@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib.pyplot import plot, show
 
-from Fitters import GLM, PolyGLM as PGLM
+from neat.Fitters import GLM, PolyGLM as PGLM
 
 x = np.linspace(-4, 4, 100)
 xdata = np.array([x ** i for i in xrange(4)])

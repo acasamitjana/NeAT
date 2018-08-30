@@ -1,6 +1,6 @@
 from xlrd import open_workbook as open_wb
 from xlrd.sheet import ctype_text as type2text
-from vneat.Utils.Dictionaries import TransformedDict
+from neat.Utils.Dictionaries import TransformedDict
 import csv
 
 class ExcelSheet(object):

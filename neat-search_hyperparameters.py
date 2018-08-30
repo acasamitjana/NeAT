@@ -4,10 +4,10 @@ from __future__ import print_function
 import os
 from argparse import ArgumentParser
 
-from vneat import helper_functions
-from vneat.CrossValidation.GridSearch import GridSearch
-from vneat.CrossValidation.score_functions import anova_error, mse, statisticC_p
-from vneat.Processors.MixedProcessor import MixedProcessor
+from neat import helper_functions
+from neat.CrossValidation.GridSearch import GridSearch
+from neat.CrossValidation.score_functions import anova_error, mse, statisticC_p
+from neat.Processors.MixedProcessor import MixedProcessor
 
 if __name__ == '__main__':
 

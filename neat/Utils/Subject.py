@@ -1,5 +1,5 @@
 import numpy as np
-from vneat.Utils import niftiIO
+from neat.Utils import niftiIO
 
 
 class Subject(object):

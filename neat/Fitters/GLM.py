@@ -1,8 +1,8 @@
 import numpy as np
 from sklearn.linear_model import LinearRegression as LR
 
-from vneat.Fitters.CurveFitting import AdditiveCurveFitter
-from vneat.Utils.Transforms import polynomial
+from neat.Fitters.CurveFitting import AdditiveCurveFitter
+from neat.Utils.Transforms import polynomial
 
 
 class GLM(AdditiveCurveFitter):

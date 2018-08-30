@@ -3,18 +3,18 @@ input:
 
   # Path to the Excel file containing the metadata of the study. See README.md for
   # further details about the accepted file format
-  excel_file: 'tests/mock_data/mock_excel.xls'
+  excel_file: '/projects/neuro/AlfaStudy/aging_apoe_data_surface/Data_VBM_Alfa_final.xls'
 
   # Path to the folder containing the NIFTI files with the grey matter values for each subject
-  data_folder: 'tests/mock_data/surfaces'
+  data_folder: '/projects/neuro/AlfaStudy/aging_apoe_data_surface/data/'
 
-  # Path to the Nifti file containing the template used to register the subjects of these study
-  template_file: 'tests/mock_data/template/rh_template.inflated'
+  # Path to the Nifti file containing the template used to register the subjects of these project
+  template_file: '/projects/neuro/AlfaStudy/aging_apoe_data_surface/fsaverage/surf/lh.inflated'
 
   # Study prefix, that is, prefix used in every greymatter file (NIFTI) before the identifier.
   # (e.g: if prefix is 'study1_' and a subject has id 'subject1', the corresponding greymatter file would be located
   # inside the folder pointed by data_folder and would be named 'study1_subject1.nii' or 'study1_subject1.nii.gz'
-  study_prefix: 'rh_'
+  study_prefix: 'lh_fsaverage_'
 
   # File extension (str): '.nii', '.nii.gz', 'mgh', '.mgz', '.thickness'
   extension: '.thickness'
@@ -26,20 +26,21 @@ model:
 
   # Identifier used in the excel file for the column that contains the ID of the subject and type of data used to
   # express this identifier (String, Number)
-  id_identifier: 'ID'
+  id_identifier: 'Subj_ID'
   id_type: 'Number'
 
   # Identifier used in the excel file for the column that contains the category/class of the subject.
   # If there is no category identifier for this study, put No
-  category_identifier: 'category'
+  category_identifier: '# of Apoe4'
 
   # Identifier that should be used as a predictor
   predictor_identifier:
-    - 'biomarker'
+    - 'Age'
 
   # List of identifiers that should be used as correctors
   correctors_identifiers:
-    - 'age'
+    - 'Gender(0=female)'
+    - 'Years of Education'
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -52,12 +53,13 @@ hyperparameters_finding:
   # If epsilon is used, use the start and end values specified below.
   # Note that if linear spacing is used, the search spane will be [start, end], but if logarithmic
   # spacing is used, the search span will be [10 ^ start, 10 ^ end]
+  # Available methods: deterministic and random
   epsilon_values:
     spacing: linear
     method: deterministic
-    N: 15
-    start: 0.01
-    end: 0.2
+    N: 20
+    start: 0.005
+    end: 0.1
 
   # Find C (regularization) hyperparameter (can be used for PolySVR and GaussianSVR) ?
   C: Yes
@@ -65,12 +67,13 @@ hyperparameters_finding:
   # If C is used, use the start and end values specified below.
   # Note that if linear spacing is used, the search spane will be [start, end], but if logarithmic
   # spacing is used, the search span will be [10 ^ start, 10 ^ end]
+  # Available methods: deterministic and random
   C_values:
     spacing: logarithmic
     method: random
-    N: 10
+    N: 2
     start: 0
-    end: 3
+    end: 1
 
   # Find gamma hyperparameter (can be used for GaussianSVR only) ?
   gamma: Yes
@@ -78,12 +81,13 @@ hyperparameters_finding:
   # If gamma is used, use the start and end values specified below.
   # Note that if linear spacing is used, the search spane will be [start, end], but if logarithmic
   # spacing is used, the search span will be [10 ^ start, 10 ^ end]
+  # Available methods: deterministic and random
   gamma_values:
     spacing: linear
-    method: random
-    N: 20
+    method: deterministic
+    N: 10
     start: 0.1
-    end: 0.5
+    end: 1
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -91,24 +95,21 @@ hyperparameters_finding:
 processing_params:
 
   # Number of processes spanned to perform computational-heavy tasks, such as fitting.
-  # Default value: 4
-  n_jobs: 2
+  n_jobs: 4
 
   # Total amount of memory in MB used to get Chunks of gray matter data from all subjects
   # (as memory increases so does the number of voxels used in one chunck)
-  # Default value: 512
-  mem_usage: 512
+  mem_usage: 256
 
   # Total amount of memory in MB used to cache the Gramm matrices used in SVR fitting
   # (more memory implies a speed up in the SVR fitting process)
-  # Default value: 1024
-  cache_size: 1024
+  cache_size: 2048
 
 # --------------------------------------------------------------------------------------------------------------------
 
-# SECTION 5: OUTPUT
+# SECTION 4: OUTPUT
 output:
 
   # Path to the folder where all results will be stored
-  output_path: '/imatge/acasamitjana/work/NeAT/surface_prova/'
-  extension: '.mha'
+  output_path: '/imatge/acasamitjana/work/NeAT/surface_proves'
+  extension: '.maps'

@@ -3,8 +3,8 @@ from abc import ABCMeta
 import numpy as np
 import os
 
-from vneat.FitScores.FitEvaluation import evaluation_function as eval_func
-from vneat.Utils.Documentation import docstring_inheritor, Debugger
+from neat.FitScores.FitEvaluation import evaluation_function as eval_func
+from neat.Utils.Documentation import docstring_inheritor, Debugger
 
 
 debugger = Debugger(os.environ['DEBUG'])
@@ -1809,6 +1809,21 @@ def CombinedFitter(correction_fitter, prediction_fitter):
             return prediction_fitter
 
     return CombinedFitter
+
+class NullFitter(CurveFitter):
+
+    @staticmethod
+    def __predict__(predictors, prediction_parameters, *args, **kwargs):
+        return np.zeros((predictors.shape[0],prediction_parameters.shape[1]))
+
+    @staticmethod
+    def __correct__(observations, correctors, correction_parameters, *args, **kwargs):
+        return observations
+
+    @staticmethod
+    def __fit__(correctors, predictors, observations, *args, **kwargs):
+        pass
+
 
 
 """ FIT EVALUATION BINDINGS """

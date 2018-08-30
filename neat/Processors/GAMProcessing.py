@@ -1,33 +1,21 @@
 import numpy as np
 
-from vneat.Fitters.GAM import GAM, InterceptSmoother, PolynomialSmoother, SplinesSmoother, SmootherSet, KernelSmoother,\
+from neat.Fitters.GAM import GAM, InterceptSmoother, PolynomialSmoother, SplinesSmoother, SmootherSet, KernelSmoother,\
     TYPE_SMOOTHER, RegressionSplinesSmoother
-from vneat.Processors.Processing import Processor
+from neat.Processors.Processing import Processor
 
 
 class GAMProcessor(Processor):
     _gamprocessor_perp_norm_options_names = [
-        'Orthonormalize all',
-        'Orthogonalize all',
         'Normalize all',
-        'Orthonormalize predictors',
-        'Orthogonalize predictors',
         'Normalize predictors',
-        'Orthonormalize correctors',
-        'Orthogonalize correctors',
         'Normalize correctors',
         'Use correctors and predictors as they are'
     ]
 
     _gamprocessor_perp_norm_options_list = [
-        GAM.orthonormalize_all,
-        GAM.orthogonalize_all,
         GAM.normalize_all,
-        GAM.orthonormalize_predictors,
-        GAM.orthogonalize_predictors,
         GAM.normalize_predictors,
-        GAM.orthonormalize_correctors,
-        GAM.orthogonalize_correctors,
         GAM.normalize_correctors,
         lambda *args, **kwargs: None
     ]
@@ -321,7 +309,6 @@ class GAMProcessor(Processor):
     def __curve__(self, fitter, predictors, prediction_parameters, *args, **kwargs):
         gam = GAM()
         GAMProcessor._gamprocessor_perp_norm_options_list[self._gamprocessor_perp_norm_option](gam)
-        print('GAMProcessing: --CHange num_paras in GAM__predict__ because it was wrongly saved.')
         return gam.predict(predictors=predictors, prediction_parameters=prediction_parameters)
 
     def get_name(self):

@@ -4,9 +4,9 @@ import os
 from argparse import ArgumentParser
 from os import path
 
-from vneat import helper_functions
-from vneat.Utils.DataLoader import DataLoader
-from vneat.Processors.MixedProcessor import MixedProcessor
+from neat import helper_functions
+from neat.Utils.DataLoader import DataLoader
+from neat.Processors.MixedProcessor import MixedProcessor
 
 if __name__ == '__main__':
 

@@ -7,11 +7,18 @@ from argparse import ArgumentParser
 
 import nibabel as nib
 
-from vneat import helper_functions
-from vneat.Processors.MixedProcessor import MixedProcessor
-from vneat.Utils.DataLoader import DataLoader
+from neat import helper_functions
+from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Utils.niftiIO import ParameterWriter
+
 
 if __name__ == '__main__':
+
+    HEMI_CHOICE = {
+        'left': 'lh',
+        'right': 'rh',
+        '': ''
+    }
 
     """ PARSE ARGUMENTS FROM CLI """
     arg_parser = ArgumentParser(description='Computes the fitting parameters for the data '
@@ -28,18 +35,27 @@ if __name__ == '__main__':
                                                  'that contains the user defined '
                                                  'parameters to load a pre-configured '
                                                  'correction and prediction processor')
-    arg_parser.add_argument('--prefix', help='Prefix used in the result files')
+    arg_parser.add_argument('--prefix', default='', help='Prefix used in the result files')
+
+    arg_parser.add_argument('--hemi', default='', choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+
 
     arguments = arg_parser.parse_args()
     config_file = arguments.configuration_file
     categories = arguments.categories
     parameters = arguments.parameters
     prefix = arguments.prefix
-
+    hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
     subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+
+    if type_data == 'surf':
+        if hemi == '':
+            raise ValueError('Please, specify the hemisphere for surface-based analysis. See arguments.')
+        # prefix = hemi + prefix
+
 
     if parameters:
         # Load user defined parameters
@@ -73,28 +89,28 @@ if __name__ == '__main__':
     """ CREATE PROCESSOR """
     # Create MixedProcessor instance
     initial_category = categories[0] if (categories is not None and len(categories)) > 0 else None
-    try:
-        processor = MixedProcessor(subjects,
-                                   predictors_names,
-                                   correctors_names,
-                                   predictors,
-                                   correctors,
-                                   processing_parameters,
-                                   user_defined_parameters=udp,
-                                   category=initial_category,
-                                   type_data=type_data)
-        # User defined parameters
-        udp = processor.user_defined_parameters
-        print(udp)
-    except ValueError:
-        print()
-        print("=" * 15)
-        print("===  ERROR  ===")
-        print("=" * 15)
-        print('The processor parameters are not correctly specified. \n'
-              'Check your user_defined_parameters file first '
-              'if you used one, and if that does not solve the issue, contact the developers.')
-        exit(1)
+    # try:
+    processor = MixedProcessor(subjects,
+                               predictors_names,
+                               correctors_names,
+                               predictors,
+                               correctors,
+                               processing_parameters,
+                               user_defined_parameters=udp,
+                               category=initial_category,
+                               type_data=type_data)
+    # User defined parameters
+    udp = processor.user_defined_parameters
+    print(udp)
+    # except ValueError:
+    #     print()
+    #     print("=" * 15)
+    #     print("===  ERROR  ===")
+    #     print("=" * 15)
+    #     print('The processor parameters are not correctly specified. \n'
+    #           'Check your user_defined_parameters file first '
+    #           'if you used one, and if that does not solve the issue, contact the developers.')
+    #     exit(1)
 
 
     if not categories:
@@ -121,9 +137,9 @@ if __name__ == '__main__':
             os.makedirs(output_folder)
 
         # Filenames
-        udp_file = prefix + '-user_defined_parameters.txt' if prefix else 'user_defined_parameters.txt'
-        p_file = prefix + '-prediction_parameters'+results_io.extension if prefix else 'prediction_parameters'+results_io.extension
-        c_file = prefix + '-correction_parameters'+results_io.extension if prefix else 'correction_parameters'+results_io.extension
+        udp_file = hemi + '-user_defined_parameters.txt' if hemi else 'user_defined_parameters.txt'
+        p_file = hemi + '-prediction_parameters' if hemi else 'prediction_parameters'
+        c_file = hemi + '-correction_parameters' if hemi else 'correction_parameters'
 
         # Save user defined parameters
         with open(path.join(output_folder, udp_file), 'wb') as f:
@@ -177,9 +193,9 @@ if __name__ == '__main__':
                 os.makedirs(output_folder)
 
             # Filenames
-            udp_file = prefix + '-user_defined_parameters.txt' if prefix else 'user_defined_parameters.txt'
-            p_file = prefix + '-prediction_parameters'+results_io.extension if prefix else 'prediction_parameters'+results_io.extension
-            c_file = prefix + '-correction_parameters'+results_io.extension if prefix else 'correction_parameters'+results_io.extension
+            udp_file = hemi + '-user_defined_parameters.txt' if hemi else 'user_defined_parameters.txt'
+            p_file = hemi + '-prediction_parameters' if hemi else 'prediction_parameters'
+            c_file = hemi + '-correction_parameters' if hemi else 'correction_parameters'
 
             # Save user defined parameters
             with open(path.join(output_folder, udp_file), 'wb') as f:
@@ -187,8 +203,11 @@ if __name__ == '__main__':
                 f.write(b'\n')
 
             # Save correction and prediction parameters
-            p_writer = results_io.writer(prediction_params, affine_matrix)
-            c_writer = results_io.writer(correction_params, affine_matrix)
+            print(prediction_params.shape)
+            print(correction_params.shape)
+            exit()
+            p_writer = ParameterWriter(prediction_params)
+            c_writer = ParameterWriter(correction_params)
             p_writer.save(path.join(output_folder, p_file))
             c_writer.save(path.join(output_folder, c_file))
 

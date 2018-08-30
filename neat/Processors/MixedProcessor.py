@@ -3,13 +3,13 @@ from collections import Counter
 import numpy as np
 import os
 
-from vneat.Fitters.CurveFitting import CombinedFitter, CurveFitter
-from vneat.Processors.GAMProcessing import GAMProcessor
-from vneat.Processors.GLMProcessing import PolyGLMProcessor
-from vneat.Processors.Processing import Processor
-from vneat.Processors.SVRProcessing import PolySVRProcessor, GaussianSVRProcessor
-from vneat.Processors.PLSProcessing import PLSProcessor
-from vneat.Utils.Documentation import Debugger
+from neat.Fitters.CurveFitting import CombinedFitter, CurveFitter
+from neat.Fitters.GLM import GLM
+from neat.Processors.GAMProcessing import GAMProcessor
+from neat.Processors.GLMProcessing import PolyGLMProcessor
+from neat.Processors.Processing import Processor, NullProcessor
+from neat.Processors.SVRProcessing import PolySVRProcessor, GaussianSVRProcessor
+from neat.Utils.Documentation import Debugger
 
 
 debugger = Debugger(os.environ['DEBUG'])
@@ -25,7 +25,6 @@ class MixedProcessor(Processor):
         GAMProcessor,
         PolySVRProcessor,
         GaussianSVRProcessor,
-        PLSProcessor,
     ]
 
     _mixedprocessor_processor_options = {
@@ -33,7 +32,6 @@ class MixedProcessor(Processor):
         'GAM': 1,
         'Poly SVR': 2,
         'Gaussian SVR': 3,
-        'PLS': 4
     }
 
     _mixedprocessor_perp_norm_options_names = [
@@ -137,13 +135,14 @@ class MixedProcessor(Processor):
         # Create MixedFitter
         fitter = CombinedFitter(correction_fitter, prediction_fitter)()
         treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]
-        treat_data(fitter)
+        self._mixedprocessor_deorthonormalization_matrix = treat_data(fitter)
 
         return fitter
 
     def __user_defined_parameters__(self, fitter):
         return self._separate_predictors_by_category, \
                self._category_predictor_option, \
+               self._perp_norm_option, \
                self._corrector_option, \
                self._corrector_udp, \
                self._predictor_option, \
@@ -210,31 +209,39 @@ class MixedProcessor(Processor):
         predict_option = MixedProcessor._mixedprocessor_processor_options[predict_option_name]
 
         print()
-        print("----------------------")
-        print(" TREAT DATA ")
-        print("----------------------")
-        perp_norm_option_global = MixedProcessor._mixedprocessor_perp_norm_options[
-            super(MixedProcessor, self).__getoneof__(
-                MixedProcessor._mixedprocessor_perp_norm_options_names[:4],
-                default_value=MixedProcessor._mixedprocessor_perp_norm_options_names[0],
-                show_text='PolyGLM Processor: How do you want to treat the features? (default: ' +
-                          MixedProcessor._mixedprocessor_perp_norm_options_names[0] + ')'
-            )]
+        print("--------------------------------")
+        print(" TREAT DATA if both are PolyGLM ")
+        print("--------------------------------")
+        if correct_option == predict_option and predict_option == MixedProcessor._mixedprocessor_processor_options['Poly GLM']:
+            perp_norm_option_global = MixedProcessor._mixedprocessor_perp_norm_options[
+                super(MixedProcessor, self).__getoneof__(
+                    MixedProcessor._mixedprocessor_perp_norm_options_names[:4],
+                    default_value=MixedProcessor._mixedprocessor_perp_norm_options_names[0],
+                    show_text='PolyGLM Processor: How do you want to treat the features? (default: ' +
+                              MixedProcessor._mixedprocessor_perp_norm_options_names[0] + ')'
+                )]
 
+        else:
+            perp_norm_option_global = 3
 
         print()
-        print( "----------------------")
+        print( "---------------------")
         print( " CORRECTOR PARAMETERS")
-        print( "----------------------")
+        print( "---------------------")
         # Create dummy array with proper dimensions to pass it as correctors to be the same size as the names
         N = len(self._processor_subjects)
         M = len(corrector_names)
         correctors = np.zeros((N, M))
         # User defined parameters for correction fitter
+        # if correct_option == -1:
+        #     correct_processor = NullProcessor(self._processor_subjects, [], corrector_names, np.zeros((0, 0)), correctors,
+        #   self._processor_processing_params, perp_norm_option_global=(perp_norm_option_global==3))
+        # else:
         correct_processor = MixedProcessor._mixedprocessor_processor_list[
-            correct_option
+        correct_option
         ](self._processor_subjects, [], corrector_names, np.zeros((0, 0)), correctors,
           self._processor_processing_params, perp_norm_option_global=(perp_norm_option_global==3))
+
         correct_udp = list(correct_processor.user_defined_parameters)
 
         print()
@@ -264,6 +271,17 @@ class MixedProcessor(Processor):
             prediction_parameters, correction_parameters
         )
 
+        if self._perp_norm_option < 3:
+            prediction_results = self.__global_glm_post_process__(prediction_parameters, correction_parameters,
+                                                                  self.fitter.predictors, self.fitter.correctors)
+
+            n_correction_parameters = correction_results.correction_parameters.shape[0]
+
+            return Processor.Results(
+                prediction_results.prediction_parameters[:n_correction_parameters],
+                prediction_results.prediction_parameters[n_correction_parameters:]
+            )
+
         # Return the post_processed parameters
         return Processor.Results(
             prediction_results.prediction_parameters,
@@ -284,19 +302,66 @@ class MixedProcessor(Processor):
             predictors,
             correctors
         )
+
+        # Get the prediction parameters for the original features matrix. It discards the correction parameters
+        # appended in the __global_glm_post_process__
+        if self._perp_norm_option < 3:
+            Kx2 = prediction_parameters.shape[0]
+            pparams = prediction_parameters[(int(Kx2 / 2)):]
+
         return pparams, cparams
 
     def __curve__(self, fitter, predictor, prediction_parameters, *args, **kwargs):
-        return self._prediction_processor.__curve__(fitter, predictor, prediction_parameters)
+        if self._perp_norm_option < 3:
+            Kx2 = prediction_parameters.shape[0]
+            pparams = prediction_parameters[(int(Kx2 / 2)):]
+        else:
+            pparams = prediction_parameters
+
+        return self._prediction_processor.__curve__(fitter, predictor, pparams)
 
     def __corrected_values__(self, fitter, observations, correction_parameters, *args, **kwargs):
         return self._correction_processor.__corrected_values__(fitter, observations, correction_parameters,
                                                                *args, **kwargs)
 
+
+    def __global_glm_post_process__(self, prediction_parameters, correction_parameters,
+                                    predictors, correctors):
+        '''This function account for transformation of the predictors and the mismatch between computed
+        parameters and real value of the predictors for future __curve__ method.
+        Correctors are not post_processed since they are not required for __curve__ methods (and other
+        methods, like correct, already account for corrected covariates --> treat_data(corrector_fitter).
+        '''
+
+        # Results without post-processing
+
+        ZC = correctors
+        ZR = predictors
+
+        Z = np.concatenate((ZC, ZR), axis=1)
+
+        Beta2R = prediction_parameters.reshape(ZR.shape[1], -1)
+
+        GammaR = self._mixedprocessor_deorthonormalization_matrix[:, -(ZR.shape[1]):]
+        ZGR = Z.dot(GammaR)
+
+        glmInv = GLM(predictors=ZGR.T, intercept=GLM.NoIntercept)
+        glmInv.fit(np.identity(ZGR.shape[1]))
+
+        ZGRInv = glmInv.prediction_parameters.T
+
+        BetaR_denorm = ZGRInv.dot(ZR).dot(Beta2R)
+
+        BetaR_denorm = BetaR_denorm.reshape(prediction_parameters.shape)
+        pparams = np.concatenate((prediction_parameters, BetaR_denorm), axis=0)
+        return Processor.Results(pparams, correction_parameters)
+
+
     def assign_bound_data(self, observations, predictors, prediction_parameters, correctors, correction_parameters,
                               fitting_results):
         # Restrictive bound data assignment: only if both processors are instances of the same class call their
         # specific implementation of __assign_bound_data__
+
 
 
         bound_functions = super(MixedProcessor, self).assign_bound_data(observations,
@@ -307,9 +372,15 @@ class MixedProcessor(Processor):
                                                                         fitting_results
                                                                         )
 
+        if self._perp_norm_option < 3:
+            Kx2 = prediction_parameters.shape[0]
+            pparams = prediction_parameters[(int(Kx2 / 2)):]
+        else:
+            pparams = prediction_parameters
+
         bound_functions += self._prediction_processor.__assign_bound_data__(observations,
                                                                             predictors,
-                                                                            prediction_parameters,
+                                                                            pparams,
                                                                             correctors,
                                                                             correction_parameters,
                                                                             fitting_results
