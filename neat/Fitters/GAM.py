@@ -310,7 +310,7 @@ class SplinesSmoother(Smoother):
         """
         Residual degrees of freedom from last fit.
         """
-        return self.N - self.df_model(ydata, parameters=parameters)
+        return ydata.shape[0] - self.df_model(ydata, parameters=parameters)
 
     def fit(self, ydata, *args, **kwargs):
 

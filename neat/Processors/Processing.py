@@ -138,6 +138,102 @@ class Processor(object):
             return processor.__post_process__(prediction_parameters, correction_parameters)
 
         @staticmethod
+        def process_longitudinal(processor, x1=0, x2=None, y1=0, y2=None, z1=0, z2=None, *args, **kwargs):
+            """
+            Processes all the data from coordinates x1, y1, z1 to x2, y2, z2
+
+            Parameters
+            ----------
+            x1 : int
+                Voxel in the x-axis from where the processing begins
+            x2 : int
+                Voxel in the x-axis where the processing ends
+            y1 : int
+                Voxel in the y-axis from where the processing begins
+            y2 : int
+                Voxel in the y-axis where the processing ends
+            z1 : int
+                Voxel in the z-axis from where the processing begins
+            z2 : int
+                Voxel in the z-axis where the processing ends
+            args : List
+            kwargs : Dict
+
+            Returns
+            -------
+            Processor.Results instance
+                Object with two properties: correction_parameters and prediction_parameters
+            """
+            chunks = Chunks(
+                processor._processor_subjects,
+                x1=x1, y1=y1, z1=z1, x2=x2, y2=y2, z2=z2,
+                mem_usage=processor._processor_processing_params['mem_usage']
+            )
+            dims = chunks.dims
+
+            # Initialize progress
+            processor._processor_progress = 0.0
+            total_num_voxels = dims[-3] * dims[-2] * dims[-1]
+            prog_inc = 10000. / total_num_voxels
+
+            # Add processing parameters to kwargs
+            kwargs['n_jobs'] = processor._processor_processing_params['n_jobs']
+            kwargs['cache_size'] = processor._processor_processing_params['cache_size']
+
+            # Get the results of the first chunk to initialize dimensions of the solution matrices
+            # Get first chunk and fit the parameters
+            chunk = next(chunks)
+
+            processor._processor_fitter.fit(chunk.data, *args, **kwargs)
+
+            # Get the parameters and the dimensions of the solution matrices
+            cparams = processor._processor_fitter.correction_parameters
+            pparams = processor._processor_fitter.prediction_parameters
+            cpdims = tuple(cparams.shape[:-3] + dims)
+            rpdims = tuple(pparams.shape[:-3] + dims)
+
+            # Initialize solution matrices
+            correction_parameters = np.zeros(cpdims, dtype=np.float64)
+            prediction_parameters = np.zeros(rpdims, dtype=np.float64)
+
+            # Assign first chunk's solutions to solution matrices
+            dx, dy, dz = cparams.shape[-3:]
+            correction_parameters[:, :dx, :dy, :dz] = cparams
+            prediction_parameters[:, :dx, :dy, :dz] = pparams
+
+            # Update progress
+            processor._processor_update_progress(prog_inc * dx * dy * dz)
+
+            # Now do the same for the rest of the Chunks
+            for chunk in chunks:
+                # Get relative (to the solution matrices) coordinates of the chunk
+                x, y, z = chunk.coords
+                x -= x1
+                y -= y1
+                z -= z1
+
+                # Get chunk data and its dimensions
+                cdata = chunk.data
+                dx, dy, dz = cdata.shape[-3:]
+
+                # Fit the parameters to the data in the chunk
+                processor._processor_fitter.fit(cdata, *args, **kwargs)
+
+                # Get the optimal parameters and insert them in the solution matrices
+                correction_parameters[:, x:x + dx, y:y + dy, z:z + dz] = processor._processor_fitter.correction_parameters
+                prediction_parameters[:, x:x + dx, y:y + dy, z:z + dz] = processor._processor_fitter.prediction_parameters
+
+                # Update progress
+                processor._processor_update_progress(prog_inc * dx * dy * dz)
+
+            if processor.progress != 100.0:
+                processor._processor_update_progress(10000.0 - processor._processor_progress)
+
+            # Call post_processing routine
+            return processor.__post_process__(prediction_parameters, correction_parameters)
+
+
+        @staticmethod
         def curve(processor, prediction_parameters, x1=0, x2=None, y1=0, y2=None, z1=0, z2=None, t1=None,
                   t2=None, tpoints=50,*args, **kwargs):
 
@@ -1033,6 +1129,7 @@ class Processor(object):
                 if gm_threshold is not None:
                     invalid_voxels[x:(x + dx)] = np.sum(cdata, axis=0) < gm_threshold
 
+
                 fitres = FittingResults()
 
                 # Assign the bound data necessary for the evaluation
@@ -1065,9 +1162,12 @@ class Processor(object):
             if filter_nans:
                 fitting_scores[~np.isfinite(fitting_scores)] = default_value
 
+
             # Filter by gray-matter threshold
             if gm_threshold is not None:
                 fitting_scores[invalid_voxels] = default_value
+                print('The following proportion of vertices is not taken into account due to gm_threshold: ' +
+                      str(len(np.where(invalid_voxels == True)[0])/np.prod(dims)))
 
             return fitting_scores
 
@@ -1582,7 +1682,7 @@ class Processor(object):
         fitting_results.curve = curve
         fitting_results.xdiff = axis[..., 1] - axis[..., 0]
 
-        return ['corrected_data', 'predicted_data', 'df_correction', 'df_prediction', 'curve', 'xdiff']
+        return ['observations','corrected_data', 'predicted_data', 'df_correction', 'df_prediction', 'curve', 'xdiff']
 
     def evaluate_fit(self, evaluation_function, correction_parameters, prediction_parameters, x1=0, x2=None, y1=0,
                      y2=None, z1=0, z2=None, origx=0, origy=0, origz=0, gm_threshold=None, filter_nans=True,

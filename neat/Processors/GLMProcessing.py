@@ -387,12 +387,15 @@ class PolyGLMProcessor(Processor):
         'Orthonormalize all',
         'Orthogonalize all',
         'Normalize all',
+
         'Orthonormalize predictors',
         'Orthogonalize predictors',
         'Normalize predictors',
+
         'Orthonormalize correctors',
         'Orthogonalize correctors',
         'Normalize correctors',
+
         'Use predictors and/or correctors as they are'
     ]
 
@@ -510,6 +513,7 @@ class PolyGLMProcessor(Processor):
         features = np.zeros((self.predictors.shape[0], num_preds + self.correctors.shape[1]))
         features[:, :num_preds] = self.predictors
         features[:, num_preds:] = self.correctors
+
         self._pglmprocessor_pglm = PGLM(features=features, predictors=range(num_preds),
                                         degrees=self._pglmprocessor_degrees, intercept=intercept)
         self._pglmprocessor_deorthonormalization_matrix = treat_data(self._pglmprocessor_pglm)
@@ -604,7 +608,7 @@ class PolyGLMProcessor(Processor):
                           default_value + ')'
             )]
         else:
-            perp_norm_option = 8
+            perp_norm_option = 9
 
         degrees = []
         for reg in predictor_names:
@@ -627,7 +631,7 @@ class PolyGLMProcessor(Processor):
 
     def __curve__(self, fitter, predictor, prediction_parameters, *args, **kwargs):
 
-        pglm = PGLM(predictor, degrees=self._pglmprocessor_degrees[:1],
+        pglm = PGLM(predictor, degrees=self._pglmprocessor_degrees,
                     intercept=PolyGLMProcessor._pglmprocessor_intercept_options_list[self._pglmprocessor_intercept])
         # Get the prediction parameters for the original features matrix
         if self._pglmprocessor_perp_norm_option < 6:

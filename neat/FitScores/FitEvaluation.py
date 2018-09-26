@@ -571,53 +571,59 @@ r2.requires('predicted_data',
             'observations, where N is the number of subjects/samples and M = X1*...*Xn the number of variables.')
 
 @evaluation_function
-def tstat(self):
+def anova(self):
     """
-    Evaluates the significance of the parameters as regards the behaviour of the observations by computing
-    the value of the T-statistic for a test in which the null hypothesis states that each parameter has no relevance
-    to the final result (i.e. B=0).
+    TODO
     """
     corrected_data = self.corrected_data()
 
     # Get the error obtained when using the full model (correctors + predictors)
-    predictors = self.predictors()
+    # prediction = self.__predict__(predictors, prediction_parameters)
 
     # prediction_error = corrected_data - prediction
     prediction_error = corrected_data - self.predicted_data()
 
+    # Now compare the variances of the errors
+
+    # Residual Sum of Squares for restricted model
+    rss1 = (corrected_data ** 2).sum(axis=0)
+
     # Residual Sum of Squares for full model
-    rss1 = (prediction_error ** 2).sum(axis=0)
+    rss2 = (prediction_error ** 2).sum(axis=0)
 
     # Degrees of freedom
+    dfc = self.df_correction()
     dfp = self.df_prediction()
 
     n = corrected_data.shape[0]
-    df1 = n - dfp  # degrees of freedom
+    df1 = dfc  # degrees of freedom of rss1 - rss2
+    df2 = n - dfc - dfp  # degrees of freedom of rss2
 
-    # Compute t-scores
-    std1 = np.sqrt( rss1 / df1 * (np.linalg.inv(np.dot(predictors.T,predictors)).diagonal()))
-    t_score = self.coefs / std1
-    return t_score
+    # Compute f-scores
+    var1 = rss1 / df1
+    var2 = rss2 / df2
+    f_score = var1 / var2
 
-tstat.requires('corrected_data',
+    return f_stat.cdf(f_score, df1, df2)
+
+anova.requires('corrected_data',
                'Matrix of shape (N, X1, ..., Xn) that contains the observations after having subtracted the '
                'contribution of the correctors, where N is the number of subjects/samples and M = X1*...*Xn '
                'the number of variables.')
-tstat.requires('predicted_data',
+anova.requires('predicted_data',
                'Matrix of shape (N, X1, ..., Xn) that contains the prediction performed by the fitter on the '
                'corrected observations, where N is the number of subjects/samples and M = X1*...*Xn the number '
                'of variables.')
-tstat.requires('df_prediction',
+anova.requires('df_correction',
+               'Constant or matrix of shape (X1, ..., Xn) indicating the degrees of freedom of the correction '
+               'model alone (without the predictors) for all variables (constant case) or each variable (matrix case).')
+anova.requires('df_prediction',
                'Constant or matrix of shape (X1, ..., Xn) indicating the degrees of freedom of the prediction '
                'model alone (without the correctors) for all variables (constant case) or each variable (matrix case).')
-tstat.requires('predictors',
-               'Predictors of shape (N, R).')
-tstat.requires('coefs',
-               'Coefficients of (PolLinear regression (N, R).')
 
 
 @evaluation_function
-def fstat(self):
+def fstat(self, contrast):
     """
     Evaluates the significance of the predictors as regards the behaviour of the observations by computing
     the value of the F-statistic for a test in which the null hypothesis states that the predictors do not
@@ -802,6 +808,8 @@ def vnprss(self, gamma):
 
 
 vnprss.uses(prss, 'prss')
+
+
 
 
 """ Latent models measures """

@@ -120,7 +120,7 @@ class GAMProcessor(Processor):
             )]
 
         else:
-            perp_norm_option = 8
+            perp_norm_option = 3
 
         print('')
         smoothing_functions = []

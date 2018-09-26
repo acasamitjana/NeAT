@@ -82,6 +82,7 @@ if __name__ == '__main__':
         print()
         # Find prediction parameters inside results folder
         pathname = path.join(output_dir, '**', hemi+'*prediction_parameters.mha' )
+        print(pathname)
         for p in glob(pathname):
             n, _, pred_p, corr_p, proc = helper_functions.get_results_from_path(
                 p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,

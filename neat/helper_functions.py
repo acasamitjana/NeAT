@@ -6,7 +6,7 @@ from scipy.stats import norm
 from sklearn.cluster import KMeans
 
 from neat.Processors.MixedProcessor import MixedProcessor
-from neat.Utils.DataLoader import DataLoader
+from neat.Utils.DataLoader import DataLoaderLongitudinal, DataLoader
 from neat.Utils.niftiIO import ParameterReader
 
 
@@ -68,6 +68,70 @@ def load_data_from_config_file(config_file):
         print('See config/exampleConfig.yaml for further information about the format of configuration '
               'files')
         exit(1)
+
+def load_longitudinal_data_from_config_file(config_file):
+    """
+    Loads all the data specified in the configuration file using src.Utils.DataLoader.DataLoader
+
+    Parameters
+    ----------
+    config_file : String
+        Path to the YAML configuration file that DataLoader uses to load the data
+
+    Returns
+    -------
+    List
+        List of the subjects of the study
+    List
+        List of the names of the predictors
+    List
+        List of the names of the correctors
+    np.array
+        Array with the predictors' data
+    np.array
+        Array with the correctors' data
+    Dictionary
+        Dictionary with the processing parameters
+    np.array
+        Array that contains the affine matrix to go from the voxel to the mm space and viceversa
+    String
+        Path to the output directory specified in the configuration file
+    """
+    print('Loading configuration data...')
+    try:
+        data_loader = DataLoaderLongitudinal(config_file)
+    except IOError as e:
+        print()
+        print(e.filename + ' does not exist.')
+        data_loader = None
+        exit(1)
+
+    # Load all necessary data:
+    try:
+        subjects = data_loader.get_subjects()
+        predictors_names = data_loader.get_predictor_name()
+        correctors_names = data_loader.get_correctors_names()
+        correctors_random_effects_names = data_loader.get_correctors_random_effects_names()
+        predictor = data_loader.get_predictor()
+        correctors = data_loader.get_correctors()
+        correctors_random_effects = data_loader.get_corrector_random_effects()
+        groups = data_loader.get_groups()
+        processing_parameters = data_loader.get_processing_parameters()
+        affine_matrix = data_loader.get_template_affine()
+        output_dir = data_loader.get_output_dir()
+        results_io = data_loader.get_results_io()
+        type_data = volume_or_surface(data_loader.get_extension())
+        return subjects, predictors_names, correctors_names, correctors_random_effects_names,\
+               predictor, correctors, correctors_random_effects, groups,\
+               processing_parameters, affine_matrix, output_dir, results_io, type_data
+
+    except KeyError:
+        print()
+        print('Configuration file does not have the specified format.')
+        print('See config/exampleConfig.yaml for further information about the format of configuration '
+              'files')
+        exit(1)
+
 
 
 def load_hyperparams_from_config_file(config_file, fitting_method):
@@ -301,7 +365,7 @@ def compute_fitting_scores(processor_instance, method_name, method_func, pparams
         )
     fit_scores_name = '{}_fitscores'.format(method_name)
     returned_results.append((fit_scores_name, fitting_scores))
-    if method_name == 'ftest':
+    if method_name == 'ftest' or method_name == 'anova':
         for p_threshold in p_thresholds:
             inv_p_threshold = 1 - p_threshold
             if labels:

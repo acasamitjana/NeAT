@@ -7,7 +7,7 @@ from neat.FitScores.FitEvaluation import evaluation_function as eval_func
 from neat.Utils.Documentation import docstring_inheritor, Debugger
 
 
-debugger = Debugger(os.environ['DEBUG'])
+
 class abstractstatic(staticmethod):
     __slots__ = ()
     __isabstractmethod__ = True

@@ -17,7 +17,8 @@ if __name__ == '__main__':
         'best',
         'rgb',
         'absdiff',
-        'se'
+        'se',
+        'intersection'
     ]
 
 
@@ -163,6 +164,28 @@ if __name__ == '__main__':
         print('Storing comparison maps...')
         se_name = ('{}-se'+results_io.extension).format(name) if name else 'se'+results_io.extension
         results_io.writer(semap, affine_matrix).save(path.join(output_dir, se_name))
+
+    elif method == 'intersection':
+        print('Computing intersection fit map ...')
+        # Load first available file and sequentially load and compare the rest of the files with
+        # respect to the previous ones
+        data = nii_files[0].get_data()
+        valid_voxels = data > 0
+        intersection = np.zeros(data.shape, dtype=np.int)
+        intersection[valid_voxels] = 1
+        for i in range(1, len(nii_files)):
+            data = nii_files[i].get_data()
+            data = data.astype(np.int)
+            valid_voxels = data > 0
+            data[valid_voxels] = 1
+            intersection *= data
+
+        print('Storing comparison maps...')
+        intersection_name = ('{}-intersection' + results_io.extension).format(
+            name) if name else 'intersection' + results_io.extension
+        res_writer = results_io.writer(intersection, affine_matrix)
+        res_writer.save(path.join(output_dir, intersection_name))
+
     else:
         print('{} comparison method has not been implemented yet.'.format(method))
         exit(0)

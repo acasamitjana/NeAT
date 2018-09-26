@@ -8,7 +8,7 @@ from os import path
 import nibabel as nib
 
 from neat import helper_functions
-from neat.FitScores.FitEvaluation import aic, fstat, ftest, mse, prss, r2, vnprss
+from neat.FitScores.FitEvaluation import aic, fstat, ftest, mse, prss, r2, vnprss, anova
 
 if __name__ == '__main__':
 
@@ -20,7 +20,8 @@ if __name__ == '__main__':
         'ftest': ftest,
         'aic': aic,
         'prss': prss,
-        'vnprss': vnprss
+        'vnprss': vnprss,
+        'anova': anova
     }
 
     HEMI_CHOICE = {
@@ -122,7 +123,7 @@ if __name__ == '__main__':
             print('Storing fitting results')
             folder_name = path.split(p)[0]
             for name, data in results:
-                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension)
+                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension) if hemi != '' else path.join(folder_name, name+results_io.extension)
                 res_writer = results_io.writer(data, affine_matrix)
                 res_writer.save(full_file_path)
     else:
@@ -156,7 +157,7 @@ if __name__ == '__main__':
             print('Storing fitting results')
             folder_name = path.split(pathname[0])[0]
             for name, data in results:
-                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension)
+                full_file_path = path.join(folder_name, hemi+'-'+name+results_io.extension) if hemi != '' else path.join(folder_name, name+results_io.extension)
                 res_writer = results_io.writer(data, affine_matrix)
                 res_writer.save(full_file_path)
     print()

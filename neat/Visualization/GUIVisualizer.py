@@ -37,7 +37,12 @@ class GUIVisualizer(object):
             raise ValueError("The shape of the image " + str(image.shape) + " must match that of the template " + str(
                 self._template_shape))
 
-        image = (image - np.min(image)).astype(float) / (np.max(image) - np.min(image))
+        if len(np.unique(image)) < 10: #assume categorical
+            min = 1
+            max = np.max(image)
+            image = (image - min).astype(float) / (max - min)
+        else:
+            image = (image - np.min(image)).astype(float) / (np.max(image) - np.min(image))
 
         self._images.append((image, colormap))
         return self

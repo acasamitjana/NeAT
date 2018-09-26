@@ -117,6 +117,7 @@ if __name__ == '__main__':
             # masked_map_data = np.concatenate((map_data, masked_map_data.mask[..., np.newaxis]),axis=-1)
         else:
             masked_map_data = np.ma.masked_equal(map_data, 0.0)
+
         # Add it to the visualizer
 
         visualizer.add_image(masked_map_data, colormap=color_map)

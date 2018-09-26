@@ -12,7 +12,6 @@ from neat.Processors.SVRProcessing import PolySVRProcessor, GaussianSVRProcessor
 from neat.Utils.Documentation import Debugger
 
 
-debugger = Debugger(os.environ['DEBUG'])
 class MixedProcessor(Processor):
     """
     Processor that uses MixedFitter to allow you to correct and predict the data with two
@@ -278,8 +277,8 @@ class MixedProcessor(Processor):
             n_correction_parameters = correction_results.correction_parameters.shape[0]
 
             return Processor.Results(
-                prediction_results.prediction_parameters[:n_correction_parameters],
-                prediction_results.prediction_parameters[n_correction_parameters:]
+                prediction_results.prediction_parameters,
+                prediction_results.correction_parameters
             )
 
         # Return the post_processed parameters

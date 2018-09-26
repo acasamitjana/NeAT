@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 import nibabel as nib
 
 from neat import helper_functions
-from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Processors.GLMEProcessing import MixedLongitudinalProcessor, GLMEProcessor
 from neat.Utils.niftiIO import ParameterWriter
 
 
@@ -48,12 +48,15 @@ if __name__ == '__main__':
     hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
-    affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+    subjects, predictors_names, correctors_names, correctors_random_effects_names, predictors, correctors, \
+    correctors_random_effects, groups, processing_parameters, affine_matrix, output_dir, results_io, \
+    type_data = helper_functions.load_longitudinal_data_from_config_file(config_file)
+
 
     if type_data == 'surf':
         if hemi == '':
             raise ValueError('Please, specify the hemisphere for surface-based analysis. See arguments.')
+        # prefix = hemi + prefix
 
 
     if parameters:
@@ -89,11 +92,14 @@ if __name__ == '__main__':
     # Create MixedProcessor instance
     initial_category = categories[0] if (categories is not None and len(categories)) > 0 else None
     # try:
-    processor = MixedProcessor(subjects,
+    processor = GLMEProcessor(subjects,
                                predictors_names,
                                correctors_names,
+                               correctors_random_effects_names,
                                predictors,
                                correctors,
+                               correctors_random_effects,
+                               groups,
                                processing_parameters,
                                user_defined_parameters=udp,
                                category=initial_category,
@@ -101,16 +107,6 @@ if __name__ == '__main__':
     # User defined parameters
     udp = processor.user_defined_parameters
     print(udp)
-    # except ValueError:
-    #     print()
-    #     print("=" * 15)
-    #     print("===  ERROR  ===")
-    #     print("=" * 15)
-    #     print('The processor parameters are not correctly specified. \n'
-    #           'Check your user_defined_parameters file first '
-    #           'if you used one, and if that does not solve the issue, contact the developers.')
-    #     exit(1)
-
 
     if not categories:
         # Processor name
@@ -151,6 +147,7 @@ if __name__ == '__main__':
         p_writer.save(path.join(output_folder, p_file))
         c_writer.save(path.join(output_folder, c_file))
 
+
         print('Done')
 
     else:
@@ -158,14 +155,17 @@ if __name__ == '__main__':
         for category in categories:
 
             # Create processor for this category
-            processor = MixedProcessor(subjects,
+            processor = GLMEProcessor(subjects,
                                        predictors_names,
                                        correctors_names,
+                                       correctors_random_effects_names,
                                        predictors,
                                        correctors,
+                                       correctors_random_effects,
+                                       groups,
                                        processing_parameters,
-                                       category=category,
                                        user_defined_parameters=udp,
+                                       category=initial_category,
                                        type_data=type_data)
 
             # Processor name
