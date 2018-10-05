@@ -50,16 +50,19 @@ def load_data_from_config_file(config_file):
     # Load all necessary data:
     try:
         subjects = data_loader.get_subjects()
-        predictors_names = data_loader.get_predictor_name()
-        correctors_names = data_loader.get_correctors_names()
-        predictor = data_loader.get_predictor()
-        correctors = data_loader.get_correctors()
+        covariates_names = data_loader.get_covariate_name()
+        covariates = data_loader.get_covariates()
+
+        # predictors_names = data_loader.get_predictor_name()
+        # correctors_names = data_loader.get_correctors_names()
+        # predictor = data_loader.get_predictor()
+        # correctors = data_loader.get_correctors()
         processing_parameters = data_loader.get_processing_parameters()
         affine_matrix = data_loader.get_template_affine()
         output_dir = data_loader.get_output_dir()
         results_io = data_loader.get_results_io()
         type_data = volume_or_surface(data_loader.get_extension())
-        return subjects, predictors_names, correctors_names, predictor, correctors, processing_parameters, \
+        return subjects, covariates_names, covariates, processing_parameters, \
                affine_matrix, output_dir, results_io, type_data
 
     except KeyError:
