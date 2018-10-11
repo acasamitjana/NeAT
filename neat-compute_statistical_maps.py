@@ -90,7 +90,7 @@ if __name__ == '__main__':
     hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
+    subjects, covariate_names, covariates, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
     if type_data == 'surf':
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         print(pathname)
         for p in glob(pathname):
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                p, results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             print()
@@ -136,7 +136,7 @@ if __name__ == '__main__':
                 continue
 
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                pathname[0], results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                pathname[0], results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             print()

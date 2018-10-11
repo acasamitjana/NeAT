@@ -9,18 +9,19 @@ from neat.Processors.GAMProcessing import GAMProcessor
 from neat.Processors.GLMProcessing import PolyGLMProcessor
 from neat.Processors.Processing import Processor, NullProcessor
 from neat.Processors.SVRProcessing import PolySVRProcessor, GaussianSVRProcessor
-from neat.Utils.Documentation import Debugger
+from neat.Utils.Transforms import orthogonalize_all, orthonormalize_all, normalize_all
 
 from neat.Utils.Subject import Chunks
 from neat.FitScores.FitEvaluation import evaluation_function as eval_func, FittingResults
 from neat.FitScores.FitEvaluation import effect_strength as eff_size_eval, effect_type as eff_type_eval
-
+from neat.Utils.Math import find_non_orthogonal_columns
 
 class MixedProcessor(Processor):
     """
     Processor that uses MixedFitter to allow you to correct and predict the data with two
     different fitters
     """
+    __threshold = 1e-14
 
     # Available processors
     _mixedprocessor_processor_list = [
@@ -41,24 +42,15 @@ class MixedProcessor(Processor):
         'Orthonormalize all',
         'Orthogonalize all',
         'Normalize all',
-        'Treat correctors and predictors independently',
+        'Treat restricted and predictor models independently',
 
-        'Orthonormalize predictors',
-        'Orthogonalize predictors',
-        'Normalize predictors',
-        'Use predictors as they are',
-
-        'Orthonormalize correctors',
-        'Orthogonalize correctors',
-        'Normalize correctors',
-        'Use correctors as they are',
     ]
 
     _mixedprocessor_perp_norm_options_list = [
-        lambda combined_fitter: combined_fitter.orthonormalize_all(),
-        lambda combined_fitter: combined_fitter.orthogonalize_all(),
-        lambda combined_fitter: combined_fitter.normalize_all(),
-        lambda *args, **kwargs: np.zeros((0, 0)),
+        Processor.orthonormalize_all,
+        Processor.orthonormalize_all,
+        Processor.orthonormalize_all,
+        lambda x: np.zeros((0,0)),
     ]
 
     class Results:
@@ -84,27 +76,27 @@ class MixedProcessor(Processor):
 
     def __fitter__(self, user_defined_parameters):
         # Store user defined parameters
-        self.separate_covariates_by_category = user_defined_parameters[0]
-        self.separate_covariates_by_category_list = user_defined_parameters[1]
+        self._separate_covariates_by_category = user_defined_parameters[0]
+        self._separate_covariates_by_category_list = user_defined_parameters[1]
         self._perp_norm_option = user_defined_parameters[2]
-        self._specify_predictor_variables = user_defined_parameters[3]
+        self._contrast = user_defined_parameters[3]
         self._corrector_option = user_defined_parameters[4]
         self._corrector_udp = user_defined_parameters[5]
         self._predictor_option = user_defined_parameters[6]
         self._predictor_udp = user_defined_parameters[7]
 
-        # Separate predictors as required
+        # Separate covariates as required
         all_categories = [subj.category for subj in self._processor_subjects]
         c = Counter(all_categories)
-        if self.separate_covariates_by_category:
+        if self._separate_covariates_by_category:
             # Create NxM ndarray, with the same number of samples as the original predictors array but with
             # M columns, where M is the number of categories, and put 0 where corresponding
-            M = self._processor_covariates.shape[1] + len(self.separate_covariates_by_category_list)*(len(c)-1)
+            M = self._processor_covariates.shape[1] + len(self._separate_covariates_by_category_list)*(len(c)-1)
             N = len(self._processor_subjects)
             covariates_array = np.zeros((N, M))
             it_m = 0
             for it_covariate in range(self._processor_covariates.shape[1]):
-                if it_covariate in self.separate_covariates_by_category_list:
+                if it_covariate in self._separate_covariates_by_category_list:
                     for index, category in enumerate(list(c)):
                         category_index = [i for i, x in enumerate(all_categories) if x == category]
                         selected_predictors = self._processor_covariates[category_index, it_covariate]
@@ -119,7 +111,7 @@ class MixedProcessor(Processor):
             original_covariates_names = self._processor_covariates_names
             covariates_names = []
             for it_cov_name, cov_name in enumerate(original_covariates_names):
-                if it_cov_name in self.separate_covariates_by_category_list:
+                if it_cov_name in self._separate_covariates_by_category_list:
                     covariates_names += [
                         cov_name + ' (category {})'.format(cat) for cat in category_list
                         ]
@@ -129,12 +121,64 @@ class MixedProcessor(Processor):
             covariates_names = self._processor_covariates_names
 
 
-        self._processor_predictors_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name in self._specify_predictor_variables]
-        self._processor_correctors_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name not in self._specify_predictor_variables]
+        #Operations with contrasts
+        contrast = np.asarray(self._contrast).T
 
-        self._processor_correctors = np.zeros((covariates_names.shape[0], len(self._specify_predictor_variables)))
-        self._processor_predictors = np.zeros((covariates_names.shape[0],
-                                               covariates_names.shape[1] - len(self._specify_predictor_variables)))
+        number_of_contrasts = contrast.shape[1]
+        contrast_null_full = np.eye(len(covariates_names)) - np.dot(contrast, np.linalg.pinv(contrast)) #There might be linearly dependent rows
+        lambda_null = find_non_orthogonal_columns(contrast_null_full)
+
+        contrast_null = np.zeros((len(covariates_names), np.linalg.matrix_rank(contrast_null_full)))
+        it_cn = 0
+        for it_l in range(contrast_null_full.shape[1]):
+            if it_l not in lambda_null:
+                contrast_null[:,it_cn] = contrast_null_full[:,it_l]
+                it_cn +=1
+
+
+        #Covariate
+
+        treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]
+        treat_data(self)
+
+        self._processor_predictors = np.dot(self.covariates,contrast)
+        self._processor_correctors = np.dot(self.covariates,contrast_null)
+
+
+        # Covariate names
+        n_predictors = np.linalg.matrix_rank(contrast)
+        n_correctors = np.linalg.matrix_rank(contrast_null)
+
+        predictor_names = []
+        corrector_names = []
+        if n_predictors == number_of_contrasts:
+            for nc in range(number_of_contrasts):
+                predictor_name_tmp = [str(c_i) + '-'+ covariates_names[it_c_i] for it_c_i, c_i in enumerate(contrast[:, nc]) if c_i != 0]
+                predictor_names.append('_'.join(predictor_name_tmp))
+        else:
+            raise ValueError("[MixedProcessor]: Please, specify orthogonal contrasts")
+
+        for it_l in range(n_correctors):
+            corrector_name_tmp = [ str(c_i)+'-'+covariates_names[it_c_i] for it_c_i, c_i in enumerate(contrast_null[:,it_l]) if c_i != 0]
+            corrector_names.append('_'.join(corrector_name_tmp))
+
+
+        if len(covariates_names) != n_predictors + n_correctors:
+            raise ValueError(
+                "[MixedProcessor]: There has been an error when computing the contrasts of the model")
+
+        self._processor_predictors_names = predictor_names
+        self._processor_correctors_names = corrector_names
+
+        ############################ Using single contrast (a delta vector in the variable of interest)
+        # self._processor_predictors_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name in self._specify_predictor_variables]
+        # self._processor_correctors_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name not in self._specify_predictor_variables]
+        #
+        # self._processor_correctors = np.zeros((covariates_names.shape[0], len(self._specify_predictor_variables)))
+        # self._processor_predictors = np.zeros((covariates_names.shape[0],
+        #                                        covariates_names.shape[1] - len(self._specify_predictor_variables)))
+        ############################
+
 
         # Create correction processor
         self._correction_processor = MixedProcessor._mixedprocessor_processor_list[
@@ -155,16 +199,14 @@ class MixedProcessor(Processor):
 
         # Create MixedFitter
         fitter = CombinedFitter(correction_fitter, prediction_fitter)
-        treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]
-        self._mixedprocessor_deorthonormalization_matrix = treat_data(fitter)
 
         return fitter
 
     def __user_defined_parameters__(self, fitter):
-        return self.separate_covariates_by_category, \
-               self.separate_covariates_by_category_list, \
+        return self._separate_covariates_by_category, \
+               self._separate_covariates_by_category_list, \
                self._perp_norm_option, \
-               self._specify_predictor_variables, \
+               self._contrast, \
                self._corrector_option, \
                self._corrector_udp, \
                self._predictor_option, \
@@ -187,7 +229,7 @@ class MixedProcessor(Processor):
             )
 
 
-            if separate_covariates_by_category is not None:
+            if separate_covariates_by_category:
                 separate_covariates_by_category_list = MixedProcessor.__getmultipleof__(
                     option_list=covariates_names,
                     try_ntimes=3,
@@ -225,23 +267,52 @@ class MixedProcessor(Processor):
             default_value=1,
             try_ntimes=3,
             lower_limit=0,
-            show_text='MixedProcessor: ? (default value: 1)'
+            show_text='MixedProcessor: How many contrasts do you want to apply? (default value: 1)'
         )
 
         if number_of_contrasts == 0:
             contrast = 0
         else:
-            contrast = np.zeros((number_of_contrasts, len(covariates_names)))
+            print('\n')
+            print("Let's specify different contrasts with these covariates:")
+            for cn in covariates_names:
+                print(' - ' + cn)
+            print('\n')
+
+            contrast = np.zeros((len(covariates_names),number_of_contrasts))
             for nc in range(number_of_contrasts):
-                contrast[nc] = MixedProcessor.__getlist__(length=len(covariates_names),
-                                                          try_ntimes=3,
-                                                          show_text='MixedProcessor: Specify contrast ' + str(nc),
-                                                          obtain_input_from=input,
-                                                          )
+                contrast[:,nc] = MixedProcessor.__getlist__(length=len(covariates_names),
+                                                            try_ntimes=3,
+                                                            show_text='MixedProcessor: Specify contrast ' + str(nc),
+                                                            obtain_input_from=input,
+                                                            )
 
+        contrast_null = np.eye(len(covariates_names)) - np.dot(contrast,np.linalg.pinv(contrast))
 
-        predictor_name = [c for it_c, c in enumerate(contrast) if it_c_name in specify_predictor_variables]
-        corrector_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name not in specify_predictor_variables]
+        n_predictors = np.linalg.matrix_rank(contrast)
+        n_correctors = np.linalg.matrix_rank(contrast_null)
+
+        predictor_names = []
+        corrector_names = []
+
+        if n_predictors == number_of_contrasts:
+            for nc in range(number_of_contrasts):
+                predictor_name_tmp = [ str(c_i)+'-'+covariates_names[it_c_i] for it_c_i, c_i in enumerate(contrast[:,nc]) if c_i != 0]
+                predictor_names.append('_'.join(predictor_name_tmp))
+        else:
+            raise ValueError("[MixedProcessor]: Please, specify orthogonal contrasts")
+
+        lambda_null = find_non_orthogonal_columns(contrast_null)
+        for it_l in range(contrast_null.shape[1]):
+            if it_l not in lambda_null:
+                corrector_name_tmp = [ str(c_i)+'-'+covariates_names[it_c_i] for it_c_i, c_i in enumerate(contrast_null[:,it_l]) if c_i != 0]
+                corrector_names.append('_'.join(corrector_name_tmp))
+
+        if len(corrector_names) != n_correctors:
+            raise ValueError("[MixedProcessor]: There has been an error when computing the null contrast for the restricted model")
+
+        # predictor_name = [c for it_c, c in enumerate(contrast) if it_c in specify_predictor_variables]
+        # corrector_names = [c_name for it_c_name, c_name in enumerate(covariates_names) if it_c_name not in specify_predictor_variables]
 
         # Correction fitter
         keys = list(MixedProcessor._mixedprocessor_processor_options.keys())
@@ -298,8 +369,7 @@ class MixedProcessor(Processor):
         # else:
         correct_processor = MixedProcessor._mixedprocessor_processor_list[
         correct_option
-        ](self._processor_subjects, [], corrector_names, np.zeros((0, 0)), correctors,
-          self._processor_processing_params, perp_norm_option_global=(perp_norm_option_global==3))
+        ](self._processor_subjects, corrector_names, correctors,self._processor_processing_params)
 
         correct_udp = list(correct_processor.user_defined_parameters)
 
@@ -308,80 +378,55 @@ class MixedProcessor(Processor):
         print( " PREDICTOR PARAMETERS")
         print( "----------------------")
         # Create dummy array with proper dimensions to pass it as correctors to be the same size as the names
-        M = len(predictor_name)
+        M = len(predictor_names)
         predictors = np.zeros((N, M))
         # User defined parameters for correction fitter
         predict_processor = MixedProcessor._mixedprocessor_processor_list[
             predict_option
-        ](self._processor_subjects, predictor_name, [], predictors, np.zeros((0, 0)),
-          self._processor_processing_params, perp_norm_option_global=(perp_norm_option_global==3))
+        ](self._processor_subjects, predictor_names, predictors, self._processor_processing_params)
         predict_udp = list(predict_processor.user_defined_parameters)
 
 
         return separate_covariates_by_category, separate_covariates_by_category_list, perp_norm_option_global, \
-               specify_predictor_variables, correct_option, correct_udp, predict_option, predict_udp
+               contrast.T.tolist(), correct_option, correct_udp, predict_option, predict_udp
 
     def __post_process__(self, prediction_parameters, correction_parameters):
         # Route post-processing routines to the corresponding processors
         prediction_results = self._prediction_processor.__post_process__(
-            prediction_parameters, correction_parameters
+            prediction_parameters
         )
         correction_results = self._correction_processor.__post_process__(
-            prediction_parameters, correction_parameters
+            correction_parameters
         )
 
-        if self._perp_norm_option < 3:
-            prediction_results = self.__global_glm_post_process__(prediction_parameters, correction_parameters,
-                                                                  self.fitter.predictors, self.fitter.correctors)
-
-            n_correction_parameters = correction_results.correction_parameters.shape[0]
-
-            return MixedProcessor.Results(
-                prediction_results.prediction_parameters,
-                prediction_results.correction_parameters
-            )
 
         # Return the post_processed parameters
         return MixedProcessor.Results(
-            prediction_results.prediction_parameters,
-            correction_results.correction_parameters
+            prediction_results.covariates_parameters,
+            correction_results.covariates_parameters
         )
 
     def __pre_process__(self, prediction_parameters, correction_parameters, predictors, correctors):
         # Route pre-processing routines to the corresponding processors
-        pparams, dummy = self._prediction_processor.__pre_process__(
+        pparams = self._prediction_processor.__pre_process__(
             prediction_parameters,
-            correction_parameters,
             predictors,
-            correctors
-        )
-        dummy, cparams = self._correction_processor.__pre_process__(
-            prediction_parameters,
-            correction_parameters,
-            predictors,
-            correctors
         )
 
-        # Get the prediction parameters for the original features matrix. It discards the correction parameters
-        # appended in the __global_glm_post_process__
-        if self._perp_norm_option < 3:
-            Kx2 = prediction_parameters.shape[0]
-            pparams = prediction_parameters[(int(Kx2 / 2)):]
+        cparams = self._correction_processor.__pre_process__(
+            correction_parameters,
+            correctors
+        )
 
         return pparams, cparams
 
     def __curve__(self, fitter, predictor, prediction_parameters, *args, **kwargs):
-        if self._perp_norm_option < 3:
-            Kx2 = prediction_parameters.shape[0]
-            pparams = prediction_parameters[(int(Kx2 / 2)):]
-        else:
-            pparams = prediction_parameters
+        return self._prediction_processor.__curve__(fitter, predictor, prediction_parameters)
 
-        return self._prediction_processor.__curve__(fitter, predictor, pparams)
-
-    def __corrected_values__(self, fitter, observations, correction_parameters, *args, **kwargs):
-        return self._correction_processor.__corrected_values__(fitter, observations, correction_parameters,
-                                                               *args, **kwargs)
+    def __corrected_values__(self, observations, correction_parameters, *args, **kwargs):
+        return self.fitter.correct(observations = observations,
+                                   correction_parameters = correction_parameters,
+                                   *args, **kwargs)
 
     def process(self, x1=0, x2=None, *args, **kwargs):
         """
@@ -474,32 +519,53 @@ class MixedProcessor(Processor):
         # Call post_processing routine
         return self.__post_process__(prediction_parameters, correction_parameters)
 
-    def assign_bound_data(self, observations, predictors, prediction_parameters, correctors, correction_parameters,
-                              fitting_results):
+    def assign_bound_data(self, observations, predictors, prediction_parameters, correctors,
+                          correction_parameters,fitting_results):
+
         # Restrictive bound data assignment: only if both processors are instances of the same class call their
         # specific implementation of __assign_bound_data__
 
+        processed_prediction_parameters, processed_correction_parameters = self.__pre_process__(
+            prediction_parameters,
+            correction_parameters,
+            predictors,
+            correctors
+        )
 
+        fitting_results.observations = observations
+        fitting_results.corrected_data = self._processor_fitter.correct(
+            observations=observations,
+            correctors=correctors,
+            correction_parameters=processed_correction_parameters
+        )
+        fitting_results.predicted_data = self._processor_fitter.predict(
+            predictors=predictors,
+            prediction_parameters=processed_prediction_parameters
+        )
+        fitting_results.df_correction = self._processor_fitter.df_correction(
+            observations=observations,
+            correctors=correctors,
+            correction_parameters=processed_correction_parameters
+        )
+        fitting_results.df_prediction = self._processor_fitter.df_prediction(
+            observations=observations,
+            predictors=predictors,
+            prediction_parameters=processed_prediction_parameters
+        )
+        axis, curve = self.curve(
+            covariate_parameters=prediction_parameters,
+            tpoints=2 * len(self.subjects)
+        )
 
-        bound_functions = super(MixedProcessor, self).assign_bound_data(observations,
-                                                                        predictors,
-                                                                        prediction_parameters,
-                                                                        correctors,
-                                                                        correction_parameters,
-                                                                        fitting_results
-                                                                        )
+        fitting_results.curve = curve
+        fitting_results.xdiff = axis[..., 1] - axis[..., 0]
 
-        if self._perp_norm_option < 3:
-            Kx2 = prediction_parameters.shape[0]
-            pparams = prediction_parameters[(int(Kx2 / 2)):]
-        else:
-            pparams = prediction_parameters
+        bound_functions = ['observations', 'corrected_data', 'predicted_data', 'df_correction', 'df_prediction', 'curve', 'xdiff']
+
 
         bound_functions += self._prediction_processor.__assign_bound_data__(observations,
                                                                             predictors,
-                                                                            pparams,
-                                                                            correctors,
-                                                                            correction_parameters,
+                                                                            prediction_parameters,
                                                                             fitting_results
                                                                             )
 
@@ -512,9 +578,34 @@ class MixedProcessor(Processor):
         processor_name = '{}-{}'.format(corrector_name, predictor_name)
         if self._category is not None:
             processor_name += '-category_{}'.format(self._category)
-        elif self._separate_predictors_by_category:
-            processor_name += '-category_{}_vs_all'.format(self._category_predictor_option)
         return processor_name
+
+
+    @property
+    def corrector_names(self):
+        """
+        Matrix of correctors of this instance
+
+        Returns
+        -------
+        numpy.array (NxC)
+            Values of the features of the subjects that are to be used as correctors in the fitter, where N is the
+            number of subjects and C the number of correctors
+        """
+        return self._processor_correctors_names
+
+    @property
+    def predictor_names(self):
+        """
+        Matrix of predictors of this instance.
+
+        Returns
+        -------
+        numpy.array (NxR)
+            Values of the features of the subjects that are to be used as predictors in the fitter, where N is the
+            number of subjects and R the number of predictors
+        """
+        return self._processor_predictors_names
 
     @property
     def correctors(self):
@@ -648,7 +739,7 @@ class MixedVolumeProcessor(MixedProcessor):
         return self.__post_process__(prediction_parameters, correction_parameters)
 
 
-    def curve(self, prediction_parameters, x1=0, x2=None, y1=0, y2=None, z1=0, z2=None, t1=None,
+    def curve(self, covariate_parameters, x1=0, x2=None, y1=0, y2=None, z1=0, z2=None, t1=None,
               t2=None, tpoints=50, *args, **kwargs):
 
         """
@@ -658,7 +749,7 @@ class MixedVolumeProcessor(MixedProcessor):
 
         Parameters
         ----------
-        prediction_parameters : ndarray
+        covariate_parameters : ndarray
             Prediction parameters obtained for this processor by means of the process() method
         x1 : int
             Voxel in the x-axis from where the curve computation begins
@@ -685,11 +776,11 @@ class MixedVolumeProcessor(MixedProcessor):
             4D array with the curve values for the tpoints in each voxel from x1, y1, z1 to x2, y2, z2
         """
         if x2 is None:
-            x2 = prediction_parameters.shape[-3]
+            x2 = covariate_parameters.shape[-3]
         if y2 is None:
-            y2 = prediction_parameters.shape[-2]
+            y2 = covariate_parameters.shape[-2]
         if z2 is None:
-            z2 = prediction_parameters.shape[-1]
+            z2 = covariate_parameters.shape[-1]
 
         if t1 is None:
             t1 = self.predictors.min(axis=0)
@@ -697,7 +788,7 @@ class MixedVolumeProcessor(MixedProcessor):
             t2 = self.predictors.max(axis=0)
 
         R = self.predictors.shape[1]
-        pparams = prediction_parameters[:, x1:x2, y1:y2, z1:z2]
+        pparams = covariate_parameters[:, x1:x2, y1:y2, z1:z2]
 
         if tpoints == -1:
             preds = np.zeros((self.predictors.shape[0], R), dtype=np.float64)
@@ -789,12 +880,9 @@ class MixedVolumeProcessor(MixedProcessor):
             cdata = chunk.data
             dx, dy, dz = cdata.shape[-3:]
             corrected_data[:, x:(x + dx), y:(y + dy), z:(z + dz)] = self.__corrected_values__(
-                self._processor_fitter,
                 cdata,
-                correction_parameters[:,
-                x:(x + dx), y:(y + dy),
-                z:(z + dz)], *args,
-                **kwargs)
+                correction_parameters[:,  x:(x + dx), y:(y + dy), z:(z + dz)],
+                *args, **kwargs)
 
         return corrected_data
 
@@ -845,8 +933,8 @@ class MixedVolumeProcessor(MixedProcessor):
         return gm_data
 
 
-    def evaluate_fit(self, evaluation_function, correction_parameters, prediction_parameters, x1=0, x2=None,
-                     y1=0, y2=None, z1=0, z2=None, origx=0, origy=0, origz=0, gm_threshold=None, filter_nans=True,
+    def evaluate_fit(self, evaluation_function, correction_parameters, prediction_parameters, x1=0, x2=None, y1=0,
+                     y2=None, z1=0, z2=None, origx=0, origy=0, origz=0, gm_threshold=None, filter_nans=True,
                      default_value=0.0, *args, **kwargs):
 
         """
@@ -906,8 +994,7 @@ class MixedVolumeProcessor(MixedProcessor):
         if z2 is None:
             z2 = z1 + correction_parameters.shape[-1]
 
-        correction_parameters = correction_parameters[:, x1:x2, y1:y2, z1:z2]
-        prediction_parameters = prediction_parameters[:, x1:x2, y1:y2, z1:z2]
+        covariate_parameters = correction_parameters[:, x1:x2, y1:y2, z1:z2]
 
         x1 += origx
         x2 += origx
@@ -1241,7 +1328,7 @@ class MixedSurfaceProcessor(MixedProcessor):
         return self.__post_process__(prediction_parameters, correction_parameters)
 
 
-    def curve(self, prediction_parameters, x1=0, x2=None, t1=None, t2=None, tpoints=50, *args, **kwargs):
+    def curve(self, covariate_parameters, x1=0, x2=None, t1=None, t2=None, tpoints=50, *args, **kwargs):
         """
             Computes tpoints predicted values in the axis of the predictor from t1 to t2 by using the results of
             a previous execution for each voxel in the relative region [x1:x2, y1:y2, z1:z2]. (Only valid for
@@ -1249,7 +1336,7 @@ class MixedSurfaceProcessor(MixedProcessor):
 
             Parameters
             ----------
-            prediction_parameters : ndarray
+            covariate_parameters : ndarray
                 Prediction parameters obtained for this processor by means of the process() method
             x1 : int
                 Voxel in the x-axis from where the curve computation begins
@@ -1276,7 +1363,7 @@ class MixedSurfaceProcessor(MixedProcessor):
                 4D array with the curve values for the tpoints in each voxel from x1, y1, z1 to x2, y2, z2
             """
         if x2 is None:
-            x2 = prediction_parameters.shape[-1]
+            x2 = covariate_parameters.shape[-1]
 
         if t1 is None:
             t1 = self.predictors.min(axis=0)
@@ -1284,7 +1371,7 @@ class MixedSurfaceProcessor(MixedProcessor):
             t2 = self.predictors.max(axis=0)
 
         R = self.predictors.shape[1]
-        pparams = prediction_parameters[:, x1:x2]
+        pparams = covariate_parameters[:, x1:x2]
 
         if tpoints == -1:
             preds = np.zeros((self.predictors.shape[0], R), dtype=np.float64)
@@ -1394,53 +1481,46 @@ class MixedSurfaceProcessor(MixedProcessor):
         return gm_data
 
 
-    def evaluate_fit(self, evaluation_function, correction_parameters, prediction_parameters, x1=0, x2=None,
-                     origx=0, gm_threshold=None, filter_nans=True, default_value=0.0, *args, **kwargs):
+    def evaluate_fit(self, evaluation_function, correction_parameters, prediction_parameters, x1=0, x2=None, origx=0,
+                     gm_threshold=None, filter_nans=True, default_value=0.0, *args, **kwargs):
 
         """
-            Evaluates the goodness of the fit for a particular fit evaluation metric
+        Evaluates the goodness of the fit for a particular fit evaluation metric
 
-            Parameters
-            ----------
-            evaluation_function : FitScores.FitEvaluation function
-                Fit evaluation function
-            correction_parameters : ndarray
-                Array with the correction parameters
-            prediction_parameters : ndarray
-                Array with the prediction parameters
-            x1 : int
-                Relative coordinate to origx of the starting voxel in the x-dimension
-            x2 : int
-                Relative coordinate to origx of the ending voxel in the x-dimension
-            origx : int
-                Absolute coordinate where the observations start in the x-dimension
-            gm_threshold : float
-                Float that specifies the minimum value of mean gray matter (across subjects) that a voxel must have.
-                All voxels that don't fulfill this requirement have their fitting score filtered out
-            filter_nans : Boolean
-                Whether to filter the values that are not numeric or not
-            default_value : float
-                Default value for the voxels that have mean gray matter below the threshold or have NaNs in the
-                fitting scores
-            args : List
-            kwargs : Dictionary
+        Parameters
+        ----------
+        evaluation_function : FitScores.FitEvaluation function
+            Fit evaluation function
+        covariate_parameters : ndarray
+            Array with the correction parameters
+        x1 : int
+            Relative coordinate to origx of the starting voxel in the x-dimension
+        x2 : int
+            Relative coordinate to origx of the ending voxel in the x-dimension
+        origx : int
+            Absolute coordinate where the observations start in the x-dimension
+        gm_threshold : float
+            Float that specifies the minimum value of mean gray matter (across subjects) that a voxel must have.
+            All voxels that don't fulfill this requirement have their fitting score filtered out
+        filter_nans : Boolean
+            Whether to filter the values that are not numeric or not
+        default_value : float
+            Default value for the voxels that have mean gray matter below the threshold or have NaNs in the
+            fitting scores
+        args : List
+        kwargs : Dictionary
 
-            Returns
-            -------
-            ndarray
-                Array with the fitting scores of the specified evaluation function
+        Returns
+        -------
+        ndarray
+            Array with the fitting scores of the specified evaluation function
             """
         # Evaluate fitting from pre-processed parameters
-
         if correction_parameters.shape[-1] != prediction_parameters.shape[-1]:
             raise ValueError(
                 'The dimensions of the correction parameters and the prediction parameters do not match')
 
-        if x2 is None:
-            x2 = x1 + correction_parameters.shape[-1]
-
-        correction_parameters = correction_parameters[:, x1:x2]
-        prediction_parameters = prediction_parameters[:, x1:x2]
+        covariate_parameters = correction_parameters[:, x1:x2]
 
         x1 += origx
         x2 += origx

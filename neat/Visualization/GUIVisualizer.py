@@ -65,17 +65,19 @@ class GUIVisualizer(object):
         self._atlas.append(atlas)
         self._atlas_dict.append(atlas_dict)
 
-    def add_curve_processor(self, processor, prediction_parameters, correction_parameters, label=None):
+    def add_curve_processor(self, processor, prediction_parameters, correction_parameters=None, label=None):
         if prediction_parameters.shape[1:] != self._template_shape:
             raise ValueError("The shape of the prediction parameters " + str(
                 prediction_parameters.shape[1:]) + " must match that of the template " + str(self._template_shape))
-        if correction_parameters.shape[1:] != self._template_shape:
-            raise ValueError("The shape of the correction parameters {} must match that of the template {}".format(
-                correction_parameters.shape[1:],
-                self._template_shape
-            ))
+        if correction_parameters is not None:
+            if correction_parameters.shape[1:] != self._template_shape:
+                raise ValueError("The shape of the correction parameters {} must match that of the template {}".format(
+                    correction_parameters.shape[1:],
+                    self._template_shape
+                ))
         if label is None:
             label = 'Curve {}'.format(len(self._processors) + 1)
+
         self._processors.append((processor, prediction_parameters, correction_parameters, label))
         return self
 
@@ -192,10 +194,16 @@ class GUIVisualizer(object):
                                                           x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1)
             self._ax[1, 1].scatter(correction_processor.predictors[:, 0], cdata[:, 0, 0, 0], marker='o', s=3)
 
+
+
         for processor, prediction_parameters, correction_parameters, label in self._processors:
-            cdata = processor.corrected_values(correction_parameters,
-                                               x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1
-                                               )
+            if correction_parameters is not None:
+                cdata = processor.corrected_values(correction_parameters,
+                                                   x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1
+                                                   )
+            else:
+                cdata = processor.get_observations(x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1)
+
             self._ax[1, 1].scatter(processor.predictors[:, 0], cdata[:, 0, 0, 0], marker='o', c=colors[0], s=3 )
 
             axis, curve = processor.curve(prediction_parameters,

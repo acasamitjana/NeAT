@@ -67,10 +67,7 @@ class DataLoader(object):
         id_type = int if self._conf['model']['id_type'] == 'Number' else str
         category_identifier = self._conf['model']['category_identifier']  # Category identifier
         fields_names = []
-        if self._conf['model']['correctors_identifiers'] is not None:
-            fields_names = fields_names + list(self._conf['model']['correctors_identifiers'])  # Correctors
-        if self._conf['model']['predictor_identifier'] is not None:
-            fields_names = fields_names + list(self._conf['model']['predictor_identifier'])        # Predictors
+        fields_names = fields_names + list(self._conf['model']['covariate_identifiers'])  # Covariates
 
         # Load excel file
         if excel_file.endswith('.xls'):
@@ -291,8 +288,8 @@ class DataLoader(object):
 
         # Get predictors
         # correctors = [0]*len(subjects)
-        if self._conf['model']['covariates_identifiers'] is not None:
-            correctors_names = self._conf['model']['covariates_identifiers']
+        if self._conf['model']['covariate_identifiers'] is not None:
+            correctors_names = self._conf['model']['covariate_identifiers']
             correctors = list(map(lambda subject: subject.get_parameters(correctors_names), subjects))
         else:
             correctors = np.zeros((len(subjects), 1))
@@ -308,8 +305,8 @@ class DataLoader(object):
         List<String>
             List of predictors' names
         """
-        if self._conf['model']['covariates_identifiers'] is not None:
-            return self._conf['model']['covariates_identifiers']
+        if self._conf['model']['covariate_identifiers'] is not None:
+            return self._conf['model']['covariate_identifiers']
         else:
             return []
 

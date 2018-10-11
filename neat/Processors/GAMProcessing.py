@@ -88,20 +88,15 @@ class GAMProcessor(Processor):
             )
         )]
 
-        if perp_norm_option_global:
+        default_value = GAMProcessor._gamprocessor_perp_norm_options_names[0]
+        options_names = GAMProcessor._gamprocessor_perp_norm_options_names
 
-            default_value = GAMProcessor._gamprocessor_perp_norm_options_names[0]
-            options_names = GAMProcessor._gamprocessor_perp_norm_options_names
-
-            perp_norm_option = GAMProcessor._gamprocessor_perp_norm_options[super(GAMProcessor, self).__getoneof__(
-                options_names,
-                default_value=default_value,
-                show_text='GAM Processor: How do you want to treat the features? (default: ' +
-                          default_value + ')'
-            )]
-
-        else:
-            perp_norm_option = len(GAMProcessor._gamprocessor_perp_norm_options_names) - 1
+        perp_norm_option = GAMProcessor._gamprocessor_perp_norm_options[super(GAMProcessor, self).__getoneof__(
+            options_names,
+            default_value=default_value,
+            show_text='GAM Processor: How do you want to treat the features? (default: ' +
+                      default_value + ')'
+        )]
 
         print('')
         smoothing_functions = []
@@ -198,10 +193,10 @@ class GAMProcessor(Processor):
 
         return (intercept, perp_norm_option, smoothing_functions)
 
-    def __curve__(self, fitter, predictors, prediction_parameters, *args, **kwargs):
+    def __curve__(self, fitter, covariates, covariate_parameters, *args, **kwargs):
         gam = GAM()
         GAMProcessor._gamprocessor_perp_norm_options_list[self._gamprocessor_perp_norm_option](gam)
-        return gam.predict(predictors=predictors, prediction_parameters=prediction_parameters)
+        return gam.predict(predictors=covariates, prediction_parameters=covariate_parameters)
 
     def get_name(self):
         if self._gamprocessor_smoother_parameters[0] == 1:

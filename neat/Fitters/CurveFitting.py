@@ -58,7 +58,7 @@ class CurveFitter(object):
             self._crvfitter_covariates = covariates
 
         C = self._crvfitter_covariates.shape[1]
-        self._crvfitter_covariates_parameters = np.zeros((C, 0))
+        self._crvfitter_covariate_parameters = np.zeros((C, 0))
 
     @property
     def covariates(self):
@@ -67,14 +67,14 @@ class CurveFitter(object):
         return self._crvfitter_covariates.copy()
 
     @property
-    def covariates_parameters(self):
+    def covariate_parameters(self):
         '''Array-like structure of shape (Kc, X1, ..., Xn), representing the correction parameters for which
             the correctors best explain the observational data passed as argument in the last call to 'fit',
             where Kc is the number of parameters for each variable in such observations, and X1, ..., Xn are
             the dimensions of the 'observations' argument in the last call to 'fit' (there are X1*...*Xn
             variables).
         '''
-        return self._crvfitter_covariates_parameters.copy().reshape(-1, *self._crvfitter_dims)
+        return self._crvfitter_covariate_parameters.copy().reshape(-1, *self._crvfitter_dims)
 
 
     def orthogonalize_covariates(self):
@@ -328,8 +328,7 @@ class CurveFitter(object):
         '''
         obs = np.array(observations, dtype=np.float64)
         dims = obs.shape
-        print(dims)
-        print(self._crvfitter_covariates.shape)
+
         self._crvfitter_dims = dims[1:]
         if dims[0] != self._crvfitter_covariates.shape[0]:
             raise ValueError('Observations and features (correctors and/or predictors) have incompatible sizes')
@@ -338,12 +337,11 @@ class CurveFitter(object):
             raise ValueError('There are no elements in argument \'observations\'')
 
         obs = obs.reshape(dims[0], -1)
-        self._crvfitter_correction_parameters, self._crvfitter_prediction_parameters = self.__fit__(
-            self._crvfitter_covariates, obs, *args, **kwargs)
+        self._crvfitter_covariate_parameters = self.__fit__(self._crvfitter_covariates, obs, *args, **kwargs)
         return self
 
     @abstractstatic
-    def __predict__(covariates, covariates_parameters, *args, **kwargs):
+    def __predict__(covariates, covariate_parameters, *args, **kwargs):
         '''[Abstract method] Computes a prediction using the predictors together with the prediction parameters.
             This method is not intended to be called outside the CurveFitter class.
 
@@ -374,7 +372,7 @@ class CurveFitter(object):
         '''
         raise NotImplementedError
 
-    def predict(self, covariates=None, covariates_parameters=None, *args, **kwargs):
+    def predict(self, covariates=None, covariate_parameters=None, *args, **kwargs):
         '''Computes a prediction using the predictors together with the prediction parameters.
 
             Parameters:
@@ -408,11 +406,11 @@ class CurveFitter(object):
             if 0 in preds.shape:
                 raise ValueError('There are no elements in argument \'predictors\'')
 
-        if covariates_parameters is None:
-            params = self._crvfitter_covariates_parameters
+        if covariate_parameters is None:
+            params = self._crvfitter_covariate_parameters
             dims = (1,) + self._crvfitter_dims
         else:
-            params = np.array(covariates_parameters, dtype=np.float64)
+            params = np.array(covariate_parameters, dtype=np.float64)
             # Keep original dimensions (to reset dimensions of prediction)
             dims = params.shape
             # Make matrix 2-dimensional
@@ -517,7 +515,7 @@ class CurveFitter(object):
             raise ValueError('The dimensions of the observations and the covariates are incompatible')
 
         if covariates_parameters is None:
-            pparams = self._crvfitter_covariates_parameters
+            pparams = self._crvfitter_covariate_parameters
             if 0 in pparams.shape:
                 raise AttributeError('There are no covariates parameters in this instance')
         else:
@@ -638,7 +636,7 @@ class CurveFitter(object):
 
         # Treat prediction parameters
         if covariates_parameters is None:
-            params = self._crvfitter_covariates_parameters
+            params = self._crvfitter_covariate_parameters
             dims = (1,) + self._crvfitter_dims
         else:
             params = np.array(covariates_parameters, dtype=np.float64)
@@ -758,7 +756,7 @@ class CurveFitter(object):
 
         # Treat prediction parameters
         if covariates_parameters is None:
-            params = self._crvfitter_covariates_parameters
+            params = self._crvfitter_covariate_parameters
             dims = (1,) + self._crvfitter_dims
         else:
             params = np.array(covariates_parameters, dtype=np.float64)
@@ -833,17 +831,17 @@ class CombinedFitter(object):
         #             1,                                if i = j
         #             0,                                if i > j
 
-        C = self._fitter_corrector._crvfitter_correctors.shape[1]
-        R = self._fitter_predictor._crvfitter_predictors.shape[1]
+        C = self._fitter_corrector._crvfitter_covariates.shape[1]
+        R = self._fitter_predictor._crvfitter_covariates.shape[1]
         CR = C + R
         D = np.zeros((CR, CR))  # D[i, j] = 0, if i > j
 
-        threshold = self._fitter_corrector._crvfitter_correctors.shape[0] * CombinedFitter.__threshold
+        threshold = self._fitter_corrector._crvfitter_covariates.shape[0] * CombinedFitter.__threshold
 
         for i in range(C):
             D[i, i] = 1.0  # D[i, j] = 1, if i = j
 
-            u_i = self._fitter_corrector._crvfitter_correctors[:, i]
+            u_i = self._fitter_corrector._crvfitter_covariates[:, i]
             norm_sq = u_i.dot(u_i)  # < u_i, u_i > = sq(||u_i||)
 
             if norm_sq < threshold:
@@ -854,18 +852,18 @@ class CombinedFitter(object):
                 continue
 
             for j in range(i + 1, C):
-                v_j = self._fitter_corrector._crvfitter_correctors[:, j]
+                v_j = self._fitter_corrector._crvfitter_covariates[:, j]
 
                 D[i, j] = u_i.dot(v_j) / norm_sq  # D[i, j] = < u_i, v_j > / < u_i, u_i >, if i < j
                 v_j -= D[i, j] * u_i
 
             for j in range(C, CR):
-                v_j = self._fitter_predictor._crvfitter_predictors[:, j - C]
+                v_j = self._fitter_predictor._crvfitter_covariates[:, j - C]
 
                 D[i, j] = u_i.dot(v_j) / norm_sq  # D[i, j] = < u_i, v_j > / < u_i, u_i >, if i < j
                 v_j -= D[i, j] * u_i
 
-        D[C:, C:] = self._fitter_predictor.orthogonalize_predictors()  # R x R
+        D[C:, C:] = self._fitter_predictor.orthogonalize_covariates()  # R x R
 
         return D
 
@@ -894,13 +892,13 @@ class CombinedFitter(object):
         #             ||u_i||,    if i = j
         #             0,            if i != j
 
-        C = self._fitter_corrector._crvfitter_correctors.shape[1]
-        R = self._fitter_predictor._crvfitter_predictors.shape[1]
+        C = self._fitter_corrector._crvfitter_covariates.shape[1]
+        R = self._fitter_predictor._crvfitter_covariates.shape[1]
         CR = C + R
         D = np.zeros((CR, CR))
 
-        D[:C, :C] = self._fitter_corrector.normalize_correctors()
-        D[C:, C:] = self._fitter_predictor.normalize_predictors()
+        D[:C, :C] = self._fitter_corrector.normalize_covariates()
+        D[C:, C:] = self._fitter_predictor.normalize_covariates()
 
         return D
 
@@ -943,15 +941,15 @@ class CombinedFitter(object):
         #             ||u_i||,            if i = j
         #             0,                    if i > j
 
-        C = self._fitter_corrector._crvfitter_correctors.shape[1]
-        R = self._fitter_predictor._crvfitter_predictors.shape[1]
+        C = self._fitter_corrector._crvfitter_covariates.shape[1]
+        R = self._fitter_predictor._crvfitter_covariates.shape[1]
         CR = C + R
         D = np.zeros((CR, CR))
 
-        threshold = self._fitter_corrector._crvfitter_correctors.shape[0] * CombinedFitter.__threshold
+        threshold = self._fitter_corrector._crvfitter_covariates.shape[0] * CombinedFitter.__threshold
 
         for i in range(C):
-            u_i = self._fitter_corrector._crvfitter_correctors[:, i]
+            u_i = self._fitter_corrector._crvfitter_covariates[:, i]
 
             norm_sq = u_i.dot(u_i)  # < u_i, u_i > = ||u_i||**2
             if norm_sq < threshold:
@@ -965,20 +963,20 @@ class CombinedFitter(object):
             u_i /= D[i, i]  # Normalize u_i, now u_i denotes w_i (step 2 of Gram-Schmidt)
 
             for j in range(i + 1, C):
-                v_j = self._fitter_corrector._crvfitter_correctors[:, j]
+                v_j = self._fitter_corrector._crvfitter_covariates[:, j]
 
                 D[i, j] = u_i.dot(v_j)  # D[i, j] = < w_i, v_j >, if i < j
                 v_j -= D[
                            i, j] * u_i  # Orthogonalize v_j with respect to w_i (step 1 of Gram-Schmidt, iterating over j instead of i)
 
             for j in range(C, CR):
-                v_j = self._fitter_predictor._crvfitter_predictors[:, j - C]
+                v_j = self._fitter_predictor._crvfitter_covariates[:, j - C]
 
                 D[i, j] = u_i.dot(v_j)  # D[i, j] = < w_i, v_j >, if i < j
                 v_j -= D[
                            i, j] * u_i  # Orthogonalize v_j with respect to w_i (step 1 of Gram-Schmidt, iterating over j instead of i)
 
-        D[C:, C:] = self._fitter_predictor.orthonormalize_predictors()  # R x R
+        D[C:, C:] = self._fitter_predictor.orthonormalize_covariates()  # R x R
 
         return D
 
@@ -1022,21 +1020,22 @@ class CombinedFitter(object):
         ## Treat observations
         obs = np.array(observations, dtype=np.float64)
         # Keep original dimensions (to reset dimensions of corrected data)
-        dims = obs.shape
-        # Make matrix 2-dimensional
-        obs = obs.reshape(dims[0], -1)
+        # dims = obs.shape
+        # # Make matrix 2-dimensional
+        # obs = obs.reshape(dims[0], -1)
 
         # Check correctness of matrix
-        if 0 in dims:
-            return np.zeros(dims)
+        # if 0 in dims:
+        #     return np.zeros(dims)
 
-        predicted_data = self._fitter_corrector.__predict__(correctors, correction_parameters, *args, **kwargs)
+        predicted_data = self._fitter_corrector.predict(correctors, correction_parameters, *args, **kwargs)
 
         if obs.shape != predicted_data.shape:
-            raise ValueError('The dimensions of the observations and the predicted data are incompatible. It may indicat'
+            raise ValueError('The dimensions of the observations and the predicted data are incompatible. It may indicate '
                              'that either the correctors or correction parameters have wrong shape.')
 
-        return (obs - predicted_data).reshape(dims)
+        # return (obs - predicted_data).reshape(dims)
+        return obs - predicted_data
 
     def predict(self, predictors=None, prediction_parameters=None, *args, **kwargs):
         return self._fitter_predictor.predict(predictors, prediction_parameters, *args, **kwargs)
@@ -1186,19 +1185,19 @@ class CombinedFitter(object):
 
     @property
     def correction_parameters(self):
-        return self._fitter_corrector.correction_parameters
+        return self._fitter_corrector.covariate_parameters
 
     @property
     def prediction_parameters(self):
-        return self._fitter_predictor.prediction_parameters
+        return self._fitter_predictor.covariate_parameters
 
     @property
     def correctors(self):
-        return self._fitter_corrector.correctors
+        return self._fitter_corrector.covariates
 
     @property
     def predictors(self):
-        return self._fitter_predictor.predictors
+        return self._fitter_predictor.covariates
 
     @property
     def prediction_fitter(self):

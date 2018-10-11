@@ -17,6 +17,7 @@ class Processor(object):
     Class that interfaces between the data and the fitting library
     """
     __metaclass__ = docstring_inheritor(ABCMeta)
+    __threshold = (1e-14 ** 2)
 
     class Results:
         def __init__(self, covariates_parameters):  # , fitting_scores):
@@ -33,9 +34,8 @@ class Processor(object):
             return s
 
 
-    def __init__(self, subjects, covariates_names, covariates,
-                 processing_parameters, user_defined_parameters=(), category=None, type_data='vol',
-                 perp_norm_option_global=False):
+    def __init__(self, subjects, covariates_names, covariates, processing_parameters,
+                 user_defined_parameters=(), category=None, type_data='vol'):
         """
         Creates a Processor instance
 
@@ -88,8 +88,7 @@ class Processor(object):
             self._processor_fitter = self.__fitter__(user_defined_parameters)
         else:
             self._processor_fitter = self.__fitter__(self.__read_user_defined_parameters__(
-                self._processor_covariates_names,
-                perp_norm_option_global=perp_norm_option_global
+                self._processor_covariates_names
             ))
 
 
@@ -379,7 +378,7 @@ class Processor(object):
         # Call post_processing routine
         return self.__post_process__(covariate_parameters)
 
-    def __post_process__(self, covariate_parameters):
+    def __post_process__(self, covariate_parameters, *args, **kwargs):
         """
         [Private method] Allows the post-processing of the prediction and correction parameters
         after the process() method has finished. By default returns the same prediction and correction
@@ -399,7 +398,7 @@ class Processor(object):
         """
         return Processor.Results(covariate_parameters)
 
-    def __pre_process__(self, covariate_parameters,  covariates):
+    def __pre_process__(self, covariate_parameters,  covariates, *args, **kwargs):
         """
         [Private method] Allows the pre-processing of the prediction and correction
         parameters before other methods are called (e.g. curve(), evaluate_fit() ).
@@ -578,7 +577,6 @@ class Processor(object):
         """
         return []
 
-
     def assign_bound_data(self, observations, covariates, covariate_parameters, fitting_results):
 
         """
@@ -633,38 +631,37 @@ class Processor(object):
 
 
         """
-            Evaluates the goodness of the fit for a particular fit evaluation metric
+        Evaluates the goodness of the fit for a particular fit evaluation metric
 
-            Parameters
-            ----------
-            evaluation_function : FitScores.FitEvaluation function
-                Fit evaluation function
-            covariate_parameters : ndarray
-                Array with the correction parameters
-            x1 : int
-                Relative coordinate to origx of the starting voxel in the x-dimension
-            x2 : int
-                Relative coordinate to origx of the ending voxel in the x-dimension
-            origx : int
-                Absolute coordinate where the observations start in the x-dimension
-            gm_threshold : float
-                Float that specifies the minimum value of mean gray matter (across subjects) that a voxel must have.
-                All voxels that don't fulfill this requirement have their fitting score filtered out
-            filter_nans : Boolean
-                Whether to filter the values that are not numeric or not
-            default_value : float
-                Default value for the voxels that have mean gray matter below the threshold or have NaNs in the
-                fitting scores
-            args : List
-            kwargs : Dictionary
+        Parameters
+        ----------
+        evaluation_function : FitScores.FitEvaluation function
+            Fit evaluation function
+        covariate_parameters : ndarray
+            Array with the correction parameters
+        x1 : int
+            Relative coordinate to origx of the starting voxel in the x-dimension
+        x2 : int
+            Relative coordinate to origx of the ending voxel in the x-dimension
+        origx : int
+            Absolute coordinate where the observations start in the x-dimension
+        gm_threshold : float
+            Float that specifies the minimum value of mean gray matter (across subjects) that a voxel must have.
+            All voxels that don't fulfill this requirement have their fitting score filtered out
+        filter_nans : Boolean
+            Whether to filter the values that are not numeric or not
+        default_value : float
+            Default value for the voxels that have mean gray matter below the threshold or have NaNs in the
+            fitting scores
+        args : List
+        kwargs : Dictionary
 
-            Returns
-            -------
-            ndarray
-                Array with the fitting scores of the specified evaluation function
-            """
+        Returns
+        -------
+        ndarray
+            Array with the fitting scores of the specified evaluation function
+        """
         # Evaluate fitting from pre-processed parameters
-
         if x2 is None:
             x2 = x1 + covariate_parameters.shape[-1]
 
@@ -818,6 +815,36 @@ class Processor(object):
             return fitscores
 
 
+    def get_observations(self, x1=0, x2=1, y1=0, y2=1, z1=0, z2=1, origx=0, origy=0, origz=0):
+
+
+        x1 += origx
+        x2 += origx
+        y1 += origy
+        y2 += origy
+        z1 += origz
+        z2 += origz
+
+        chunks = Chunks(self._processor_subjects, x1=x1, y1=y1, z1=z1, x2=x2, y2=y2, z2=z2,
+                        mem_usage=self._processor_processing_params['mem_usage'])
+
+        dims = chunks.dims
+        obs = np.zeros(tuple([chunks.num_subjects]) + dims, dtype=np.float64)
+        for chunk in chunks:
+            # Get relative (to the solution matrix) coordinates of the chunk
+            x, y, z = chunk.coords
+            x -= x1
+            y -= y1
+            z -= z1
+
+            # Get chunk data and its dimensions
+            cdata = chunk.data
+            dx, dy, dz = cdata.shape[-3:]
+            obs[:, x:(x + dx), y:(y + dy), z:(z + dz)] = cdata
+
+        return obs
+
+
     @staticmethod
     def __processor_get__(obtain_input_from, apply_function, try_ntimes, default_value, show_text, show_error_text):
         """
@@ -870,6 +897,180 @@ class Processor(object):
                 print( 'Please, try again.')
 
         return default_value
+
+    def orthogonalize_all(self):
+        '''Orthogonalizes each feature w.r.t the others
+
+            Modifies:
+
+                - Features: each column has been orthogonalized with respect to the previous ones.
+
+            Returns:
+
+                - Deorthogonalization matrix: A (C+R)x(C+R) (2-dimensional) upper triangular matrix that yields the
+                    original 'feature' matrix when right-multiplied with the new 'feature'
+                    matrix. More specifically, given the original 'feature' matrix, OF, and the new, orthogonalized
+                    'correctors' matrix, NF,  and the return value is a matrix, D,
+                    such that OF = NF x D (matrix multiplication).
+        '''
+
+        # Original 'features' matrix:
+        #     V = (C | R) = ( v_1 | v_2 | ... | v_(C+R) )
+
+        # Gram-Schmidt:
+        #    u_j = v_j - sum_{i < j} ( ( < u_i, v_j > / < u_i, u_i > ) * u_i ) # orthogonalize v_j with respect to every u_i, or equivalently, v_i, with i < j
+
+        # New 'features' matrix (orthonormalized):
+        #    U = ( u_1 | u_2 | ... | u_(C+R) )
+
+        # Deorthogonalization matrix (upper triangular):
+        #    D[i, j] =
+        #            < u_i, v_j > / < u_i, u_i >,    if i < j
+        #             1,                                if i = j
+        #             0,                                if i > j
+        C = self.covariates.shape[1]
+        D = np.zeros((C, C))  # D[i, j] = 0, if i > j
+        if (C == 0):
+            return D
+
+        threshold = self.covariates.shape[0] * Processor.__threshold
+
+        for i in range(C - 1):
+            D[i, i] = 1.0  # D[i, j] = 1, if i = j
+
+            u_i = self.covariates[:, i]
+            norm_sq = u_i.dot(u_i)  # < u_i, u_i > = sq(||u_i||)
+
+            if norm_sq < threshold:
+                u_i[:] = 0.0  # Set whole vector to 0, since it is a linear combination of other vectors in the matrix
+                # Notice that D[i, i] is set to 1, as requested (this means that the deorthogonalization will still
+                # work, hopefully with a small enough precision error)
+                continue
+
+            for j in range(i + 1, C):  # for j > i
+                v_j = self.covariates[:, j]
+
+                D[i, j] = u_i.dot(v_j) / norm_sq  # D[i, j] = < u_i, v_j > / < u_i, u_i >, if i < j
+                v_j -= D[i, j] * u_i  # Orthogonalize v_j with respect to u_i (Gram-Schmidt, iterating over j instead of i)
+
+
+        D[-1, -1] = 1.0  # D[i, j] = 1, if i = j
+
+        return D
+
+    def normalize_all(self):
+        '''Normalizes the energy of each corrector (the magnitude of each feature interpreted as a vector,
+                that is, the magnitude of each column of the internal correctors matrix).
+
+                Modifies:
+
+                    - Correctors: each column has been normalized to have unit magnitude.
+
+                Returns:
+
+                    - Denormalization matrix: A CxC (2-dimensional) diagonal matrix that yields the original
+                        'correctors' matrix when right-multiplied with the new 'correctors' matrix. That is,
+                        given the original 'correctors' matrix, OC, and the new, normalized 'correctors' matrix,
+                        NC, the return value is a diagonal matrix D such that OC = NC x D (matrix multiplication).
+        '''
+
+        # Original 'correctors' matrix:
+        #    V = ( v_1 | v_2 | ... | v_C )
+
+        # Normalization:
+        #    u_j = v_j / ||v_j||
+
+        # New 'correctors' matrix (normalized):
+        #    U = ( u_1 | u_2 | ... | u_C )
+
+        # Deorthogonalization matrix (diagonal):
+        #    D[i, j] =
+        #             ||u_i||,    if i = j
+        #             0,            if i != j
+
+        C = self.covariates.shape[1]
+        D = np.zeros((C, C))  # D[i, j] = 0, if i != j
+
+        threshold = self.covariates.shape[0] * Processor.__threshold
+
+        for i in range(C):
+            u_i = self.covariates[:, i]
+            norm_sq = u_i.dot(u_i)
+            if norm_sq >= threshold:
+                D[i, i] = norm_sq ** 0.5  # D[i, j] = ||u_i||, if i = j
+                u_i /= D[i, i]  # Normalization
+            elif norm_sq != 0.0:
+                u_i[:] = 0.0
+
+
+        return D
+
+    def orthonormalize_all(self):
+        '''Orthogonalizes each predictor w.r.t the others, all correctors w.r.t. the others, and all the
+            predictors w.r.t. all the correctors, and normalizes the results. This is equivalent to applying
+            orthogonalize_all and normalize_all consecutively (in that same order), but slightly faster.
+
+            Modifies:
+
+                - Correctors: each column has been orthogonalized with respect to the previous np.ones and nor-
+                    malized afterwards.
+                - Regressors: each column has been orthogonalized with respect to all the columns in the
+                    correctors matrix and all the previous columns in the predictors matrix, and normalized
+                    afterwards.
+
+            Returns:
+
+                - Deorthonormalization matrix: A (C+R)x(C+R) (2-dimensional) upper triangular matrix that yields
+                    the original 'correctors' and 'predictors' matrices when right-multiplied with the new
+                    'correctors and 'predictors' matrices. More specifically, given the original 'correctors'
+                    matrix, namely OC, the original 'predictors' matrix, OR, and the new, orthonormalized
+                    'correctors' and 'predictors' matrices, NC and NR respectively, the return value is a matrix,
+                    D, such that (OC | OR) = (NC | NR) x D (matrix multiplication).
+        '''
+
+        # Original 'features' matrix:
+        #     V = (C | R) = ( v_1 | v_2 | ... | v_(C+R) )
+
+        # Gram-Schmidt:
+        #    u_j = v_j - sum_{i < j} ( < w_i, v_j > * w_i ) # orthogonalize v_j with respect to w_i, or equivalently, u_i or v_i with i < j
+        #    w_j = u_j / (||u_j||) = u_j / sqrt(< u_j, u_j >) # normalize u_j
+
+        # New 'features' matrix (orthonormalized):
+        #    W = ( w_1 | w_2 | ... | w_(C+R) )
+
+        # Deorthonormalization matrix (upper triangular):
+        #    D[i, j] =
+        #            < w_i, v_j >,        if i < j
+        #             ||u_i||,            if i = j
+        #             0,                    if i > j
+        C = self.covariates.shape[1]
+        D = np.zeros((C, C))  # D[i, j] = 0, if i > j
+        if (C == 0):
+            return D
+
+        threshold = self.covariates.shape[0] * Processor.__threshold
+
+        for i in range(C - 1):
+            u_i = self.covariates[:, i]
+            norm_sq = u_i.dot(u_i)  # < u_i, u_i > = sq(||u_i||)
+
+            if norm_sq < threshold:
+                u_i[:] = 0.0  # Set whole vector to 0, since it is a linear combination of other vectors in the matrix
+                # Notice that D[i, i] is set to 1, as requested (this means that the deorthogonalization will still
+                # work, hopefully with a small enough precision error)
+                continue
+
+            D[i, i] = norm_sq ** 0.5  # D[i, j] = ||u_i||, if i = j
+            u_i /= D[i, i]  # Normalize u_i, now u_i denotes w_i (step 2 of Gram-Schmidt)
+            for j in range(i + 1, C):  # for j > i
+                v_j = self.covariates[:, j]
+
+                D[i, j] = u_i.dot(v_j) / norm_sq  # D[i, j] = < u_i, v_j > / < u_i, u_i >, if i < j
+                v_j -= D[i, j] * u_i  # Orthogonalize v_j with respect to u_i (Gram-Schmidt, iterating over j instead of i)
+
+        D[-1, -1] = 1.0  # D[i, j] = 1, if i = j
+
+        return D
 
     @staticmethod
     def __getint__(default_value=None,

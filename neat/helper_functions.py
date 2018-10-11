@@ -5,7 +5,7 @@ import numpy as np
 from scipy.stats import norm
 from sklearn.cluster import KMeans
 
-from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Processors.MixedProcessor import MixedProcessor, MixedSurfaceProcessor, MixedVolumeProcessor
 from neat.Utils.DataLoader import DataLoaderLongitudinal, DataLoader
 from neat.Utils.niftiIO import ParameterReader
 
@@ -208,8 +208,8 @@ def load_template_from_config_file(config_file):
         exit(1)
 
 
-def get_results_from_path(pred_params_path, results_io, subjects, predictors_names, correctors_names,
-                          predictors, correctors, processing_parameters, type_data):
+def get_results_from_path(pred_params_path, results_io, subjects, covariate_names,
+                        covariates, processing_parameters, type_data):
     """
     Returns the all the fitting results previously computed by compute_fitting.py found in the
     specified path for the prediction parameters.
@@ -270,6 +270,7 @@ def get_results_from_path(pred_params_path, results_io, subjects, predictors_nam
         cat_name = None
         cat = None
         name = folder_name
+
     # Load niftis and txt files and keep them
     with open(udp_path, 'rb') as udp_file:
         udp = eval(udp_file.read())
@@ -277,18 +278,33 @@ def get_results_from_path(pred_params_path, results_io, subjects, predictors_nam
     pred_parameters = ParameterReader(prediction_params_path).get_data()
     corr_parameters = ParameterReader(correction_params_path).get_data()
 
-    # Create MixedProcessor and keep it
-    processor = MixedProcessor(
-        subjects,
-        predictors_names,
-        correctors_names,
-        predictors,
-        correctors,
-        processing_parameters,
-        user_defined_parameters=udp,
-        category=cat,
-        type_data=type_data
-    )
+    if type_data == 'surf':
+        processor = MixedSurfaceProcessor(subjects,
+                                          covariate_names,
+                                          covariates,
+                                          processing_parameters,
+                                          user_defined_parameters=udp,
+                                          category=cat,
+                                          type_data=type_data)
+
+    elif type_data == 'vol':
+        processor = MixedVolumeProcessor(subjects,
+                                         covariate_names,
+                                         covariates,
+                                         processing_parameters,
+                                         user_defined_parameters=udp,
+                                         category=cat,
+                                         type_data=type_data)
+
+    else:
+        processor = MixedProcessor(subjects,
+                                   covariate_names,
+                                   covariates,
+                                   processing_parameters,
+                                   user_defined_parameters=udp,
+                                   category=cat,
+                                   type_data=type_data)
+
 
     return name, cat_name, pred_parameters, corr_parameters, processor
 
