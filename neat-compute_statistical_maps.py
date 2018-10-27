@@ -74,7 +74,8 @@ if __name__ == '__main__':
     arguments_parser.add_argument('--labels', default=True,
                                   help='Produce a map that has one label per cluster.')
 
-    arguments_parser.add_argument('--hemi', default ='',choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+    arguments_parser.add_argument('--hemi', default ='',choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.'
+                                                                                  'Please, speciy either left or right.')
 
     arguments = arguments_parser.parse_args()
     config_file = arguments.configuration_file
@@ -112,14 +113,14 @@ if __name__ == '__main__':
             if category is not None:
                 print('({})'.format(category), end="")
             print("\n{} progress: ".format(method))
-            try:
-                results = helper_functions.compute_fitting_scores(
-                    proc, method, method_func, pred_p, corr_p, cluster_size, p_thresholds, gamma,
-                    percentile_filter, gm_threshold, labels
-                )
-            except RuntimeError:
-                print('{} is not supported by this fitter. Try another fit evaluation method.'.format(method))
-                continue
+            # try:
+            results = helper_functions.compute_fitting_scores(
+                proc, method, method_func, pred_p, corr_p, cluster_size, p_thresholds, gamma,
+                percentile_filter, gm_threshold, labels
+            )
+            # except RuntimeError:
+            #     print('{} is not supported by this fitter. Try another fit evaluation method.'.format(method))
+            #     continue
             print('Storing fitting results')
             folder_name = path.split(p)[0]
             for name, data in results:

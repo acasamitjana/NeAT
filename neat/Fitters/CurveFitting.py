@@ -241,8 +241,7 @@ class CurveFitter(object):
                 v_j = self._crvfitter_covariates[:, j]
 
                 D[i, j] = u_i.dot(v_j)  # D[i, j] = < w_i, v_j >, if i < j
-                v_j -= D[
-                           i, j] * u_i  # Orthogonalize v_j with respect to w_i (step 1 of Gram-Schmidt, iterating over j instead of i)
+                v_j -= D[i, j] * u_i  # Orthogonalize v_j with respect to w_i (step 1 of Gram-Schmidt, iterating over j instead of i)
 
         return D
 
@@ -845,8 +844,7 @@ class CombinedFitter(object):
             norm_sq = u_i.dot(u_i)  # < u_i, u_i > = sq(||u_i||)
 
             if norm_sq < threshold:
-                u_i[
-                :] = 0.0  # Set whole vector to 0, since it is a linear combination of other vectors in the matrix
+                u_i[:] = 0.0  # Set whole vector to 0, since it is a linear combination of other vectors in the matrix
                 # Notice that D[i, i] is set to 1, as requested (this means that the deorthogonalization will still
                 # work, hopefully with a small enough precision error)
                 continue

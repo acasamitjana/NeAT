@@ -48,8 +48,8 @@ class MixedProcessor(Processor):
 
     _mixedprocessor_perp_norm_options_list = [
         Processor.orthonormalize_all,
-        Processor.orthonormalize_all,
-        Processor.orthonormalize_all,
+        Processor.orthogonalize_all,
+        Processor.normalize_all,
         lambda x: np.zeros((0,0)),
     ]
 
@@ -139,10 +139,12 @@ class MixedProcessor(Processor):
         #Covariate
 
         treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]
-        treat_data(self)
 
-        self._processor_predictors = np.dot(self.covariates,contrast)
-        self._processor_correctors = np.dot(self.covariates,contrast_null)
+        predictors = np.dot(self.covariates,contrast)
+        correctors = np.dot(self.covariates,contrast_null)
+        self._processor_covariates = np.concatenate((correctors, predictors),axis=1)
+        treat_data(self)
+        self._processor_correctors, self._processor_predictors = self.covariates[:,:-number_of_contrasts],self.covariates[:,-number_of_contrasts:]
 
 
         # Covariate names
@@ -786,6 +788,8 @@ class MixedVolumeProcessor(MixedProcessor):
             t1 = self.predictors.min(axis=0)
         if t2 is None:
             t2 = self.predictors.max(axis=0)
+
+
 
         R = self.predictors.shape[1]
         pparams = covariate_parameters[:, x1:x2, y1:y2, z1:z2]
@@ -1520,10 +1524,13 @@ class MixedSurfaceProcessor(MixedProcessor):
             raise ValueError(
                 'The dimensions of the correction parameters and the prediction parameters do not match')
 
-        covariate_parameters = correction_parameters[:, x1:x2]
+        kwargs = {key: value for key, value in kwargs.items() if key not in ['y1','y2','z1','z2']}
+        if x2 is None:
+            x2 = x1 + correction_parameters.shape[-1]
 
         x1 += origx
         x2 += origx
+
 
         chunks = Chunks(self._processor_subjects, x1=x1,
                         mem_usage=self._processor_processing_params['mem_usage'])

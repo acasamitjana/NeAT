@@ -86,7 +86,7 @@ class PolySVRProcessor(Processor):
         )]
 
         # Treat data option: if there is not a global variable, treat it independently for each fitter.
-        default_value = PolySVRProcessor._psvrprocessor_perp_norm_options_names[3]
+        default_value = PolySVRProcessor._psvrprocessor_perp_norm_options_names[1]
         options_names = PolySVRProcessor._psvrprocessor_perp_norm_options_names
 
         perp_norm_option = PolySVRProcessor._psvrprocessor_perp_norm_options[
@@ -226,7 +226,7 @@ class GaussianSVRProcessor(Processor):
             )]
 
         # Treat data option: if there is not a global variable, treat it independently for each fitter.
-        default_value = GaussianSVRProcessor._gsvrprocessor_perp_norm_options_names[3]
+        default_value = GaussianSVRProcessor._gsvrprocessor_perp_norm_options_names[1]
         options_names = GaussianSVRProcessor._gsvrprocessor_perp_norm_options_names
 
         perp_norm_option = GaussianSVRProcessor._gsvrprocessor_perp_norm_options[

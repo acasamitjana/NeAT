@@ -96,7 +96,7 @@ class LinSVR(CurveFitter):
         # Return prediction
         return scaled_covariates.dot(cov_params) + intercept
 
-    def __df_prediction__(self, observations, covariates, covariate_parameters):
+    def __df_fitting__(self, observations, covariates, covariate_parameters):
         # Get the df from the prediction parameters
         df = covariate_parameters[-1, :]
         return df

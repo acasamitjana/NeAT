@@ -38,7 +38,7 @@ class GAM(CurveFitter):
             smoother.set_covariate(cov.reshape(dims[0], -1))
 
 
-        smoother_functions = self.predictor_smoothers
+        smoother_functions = self.covariate_smoothers
         crv_cov = []
         for obs in observations.T:
             alpha, smoothers = self.__backfitting_algorithm(obs, smoother_functions, rtol=rtol,
@@ -65,7 +65,7 @@ class GAM(CurveFitter):
             while indx_smthr < len(pred_param):
                 if pred_param[indx_smthr] == 0:
                     y_pred += pred_param[indx_smthr + 2]
-                    indx_smthr += pred_param[1] + 2
+                    indx_smthr += int(pred_param[indx_smthr+1]) + 2
                 else:
                     pred = covariates[:, indx_pred]
                     smoother = TYPE_SMOOTHER[int(pred_param[indx_smthr])](pred)
@@ -142,7 +142,7 @@ class GAM(CurveFitter):
 
         return (alpha, smoother_functions)
 
-    def __df_prediction__(self, observations, predictors, prediction_parameters):
+    def __df_fitting__(self, observations, predictors, prediction_parameters):
         df = []
         for obs, pred_param in zip(observations.T, prediction_parameters.T):
             indx_smthr = 0
@@ -152,9 +152,7 @@ class GAM(CurveFitter):
             while indx_smthr < len(pred_param):
                 if pred_param[indx_smthr] == 0:
                     y_pred += pred_param[2]
-                    indx_smthr += pred_param[1] + 2
-                    n_params = int(pred_param[indx_smthr + 1])
-                    indx_smthr += n_params + 2
+                    indx_smthr += int(pred_param[indx_smthr + 1]) + 2
                     df_partial += 1
 
                 else:

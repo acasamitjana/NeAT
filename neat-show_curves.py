@@ -240,11 +240,12 @@ if __name__ == '__main__':
                 color=AVAILABLE_COLORS[color_counter]
             )
 
+
             # Next color
             color_counter = color_counter + 1 if ((color_counter + 1) % len(AVAILABLE_COLORS)) != 0 else 0
             # Plot info
             plt.legend(fontsize='x-small')
-            plt.xlabel(processors[i]._predictors_names[0], fontsize='xx-large')
+            plt.xlabel(processors[i].predictor_names[0], fontsize='xx-large')
             plt.ylabel('Grey matter', fontsize='xx-large')
             if type_data == 'vol':
                 plt_title = 'Coordinates: ' + \
