@@ -20,6 +20,8 @@ if __name__ == '__main__':
             ]
 
 
+
+
     """ LOAD DATA USING DATALOADER """
     subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
@@ -65,6 +67,7 @@ if __name__ == '__main__':
     z1_RHipp = np.min(index_RHipp[2])
     z2_RHipp = np.max(index_RHipp[2])
 
+
     index_RCaudate = np.where(atlas == 72)
     x1_RCaudate = np.min(index_RCaudate[0])
     x2_RCaudate = np.max(index_RCaudate[0])
@@ -74,23 +77,29 @@ if __name__ == '__main__':
     z2_RCaudate = np.max(index_RCaudate[2])
 
 
+    label_ROI_dict = {'RHipp': 38, 'RCaudate': 72}
+    index_composite = {'RHipp': (x1_RHipp,y1_RHipp,z1_RHipp), 'RCaudate': (x1_RCaudate,y1_RCaudate,z1_RCaudate)}
+
     # Get corrected grey matter data
     print('Loading curves...')
     dict_curves = {}
+    dict_curves_concatenated = {}
     for i in range(len(processors)):
         print(processors[i].get_name())
+        dict_curves[processors[i].get_name()] = {}
+
         ############
         # Region 1 #
         ############
-        corrected_data = processors[i].corrected_values(
-            correction_parameters[i],
-            x1=x1_RHipp,
-            x2=x2_RHipp,
-            y1=y1_RHipp,
-            y2=y2_RHipp,
-            z1=z1_RHipp,
-            z2=z2_RHipp
-        )
+        # corrected_data = processors[i].corrected_values(
+        #     correction_parameters[i],
+        #     x1=x1_RHipp,
+        #     x2=x2_RHipp,
+        #     y1=y1_RHipp,
+        #     y2=y2_RHipp,
+        #     z1=z1_RHipp,
+        #     z2=z2_RHipp
+        # )
 
         # Get curves
         axis, curve = processors[i].curve(
@@ -103,21 +112,22 @@ if __name__ == '__main__':
             z2=z2_RHipp,
             tpoints=100
         )
+        dict_curves[processors[i].get_name()]['RHipp'] = curve
         curve_RHipp = curve.reshape((axis.shape[1], -1))
 
 
         ############
         # Region 1 #
         ############
-        corrected_data = processors[i].corrected_values(
-            correction_parameters[i],
-            x1=x1_RCaudate,
-            x2=x2_RCaudate,
-            y1=y1_RCaudate,
-            y2=y2_RCaudate,
-            z1=z1_RCaudate,
-            z2=z2_RCaudate
-        )
+        # corrected_data = processors[i].corrected_values(
+        #     correction_parameters[i],
+        #     x1=x1_RCaudate,
+        #     x2=x2_RCaudate,
+        #     y1=y1_RCaudate,
+        #     y2=y2_RCaudate,
+        #     z1=z1_RCaudate,
+        #     z2=z2_RCaudate
+        # )
 
         # Get curves
         axis, curve = processors[i].curve(
@@ -130,9 +140,37 @@ if __name__ == '__main__':
             z2=z2_RCaudate,
             tpoints=100
         )
+        dict_curves[processors[i].get_name()]['RCaudate'] = curve
         curve_RCaudate = curve.reshape((axis.shape[1], -1))
 
-        dict_curves[processors[i].get_name()] = np.concatenate((curve_RHipp, curve_RCaudate), axis=1)
+        dict_curves_concatenated[processors[i].get_name()] = np.concatenate((curve_RHipp, curve_RCaudate), axis=1)
 
+
+
+
+    import csv
+    from os.path import join
+    OUTPUT_DIR = '/work/acasamitjana/NeAT/'
+    FILE = '_curves_RHipp_RCau.csv'
+    fieldnames = ['X', 'Y', 'Z', 'ROI'] + list(range(100))
+
+    for processor_name, ROI_dict in dict_curves.items():
+        with open(join(OUTPUT_DIR, processor_name + FILE), 'w') as outfile:
+            csv_writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            csv_writer.writeheader()
+            for ROI_name, ROI_curves in ROI_dict.items():
+                for x in range(ROI_curves.shape[1]):
+                    for y in range(ROI_curves.shape[2]):
+                        for z in range(ROI_curves.shape[3]):
+                            if atlas[x+index_composite[ROI_name][0],y+index_composite[ROI_name][1], z+index_composite[ROI_name][2]] == label_ROI_dict[ROI_name]:
+                                to_write = {}
+                                to_write['X'] = x+index_composite[ROI_name][0]
+                                to_write['Y'] = y+index_composite[ROI_name][1]
+                                to_write['Z'] = z+index_composite[ROI_name][2]
+                                to_write['ROI'] = ROI_name
+                                for i in range(100):
+                                    to_write[i] = ROI_curves[i,x,y,z]
+
+                                csv_writer.writerow(to_write)
 
 
