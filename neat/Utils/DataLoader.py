@@ -67,10 +67,7 @@ class DataLoader(object):
         id_type = int if self._conf['model']['id_type'] == 'Number' else str
         category_identifier = self._conf['model']['category_identifier']  # Category identifier
         fields_names = []
-        if self._conf['model']['correctors_identifiers'] is not None:
-            fields_names = fields_names + list(self._conf['model']['correctors_identifiers'])  # Correctors
-        if self._conf['model']['predictor_identifier'] is not None:
-            fields_names = fields_names + list(self._conf['model']['predictor_identifier'])        # Predictors
+        fields_names = fields_names + list(self._conf['model']['covariate_identifiers'])  # Covariates
 
         # Load excel file
         if excel_file.endswith('.xls'):
@@ -259,6 +256,60 @@ class DataLoader(object):
             correctors = np.zeros((len(subjects),1))
 
         return np.asarray(correctors)
+
+    def get_covariates(self, start=None, end=None, use_cache=True):
+        """
+        Returns the correctors of the study for all the subjects between "start" and "end" [start, end)
+
+        Parameters
+        ----------
+        start : [Optional] int
+            0-based index where the first subject to be loaded is located
+        end : [Optional] int
+            0-based index where the last subject to be loaded is located
+        use_cache : [Optional] Boolean
+            Uses cached subjects (if any) when it is set to True.
+            Default value: True
+
+        Returns
+        -------
+        numpy.array
+            2D matrix with the correctors for all subjects
+        """
+        # Get subjects
+        if use_cache and (len(self._cached_subjects) > 0) and (self._start == start) and (self._end == end):
+            subjects = self._cached_subjects
+        else:
+            subjects = self.get_subjects(start, end)
+            # Update cache
+            self._cached_subjects = subjects
+            self._start = start
+            self._end = end
+
+        # Get predictors
+        # correctors = [0]*len(subjects)
+        if self._conf['model']['covariate_identifiers'] is not None:
+            correctors_names = self._conf['model']['covariate_identifiers']
+            correctors = list(map(lambda subject: subject.get_parameters(correctors_names), subjects))
+        else:
+            correctors = np.zeros((len(subjects), 1))
+
+        return np.asarray(correctors)
+
+    def get_covariate_name(self):
+        """
+        Returns the names of the predictors of this study
+
+        Returns
+        -------
+        List<String>
+            List of predictors' names
+        """
+        if self._conf['model']['covariate_identifiers'] is not None:
+            return self._conf['model']['covariate_identifiers']
+        else:
+            return []
+
 
     def get_predictor_name(self):
         """

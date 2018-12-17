@@ -9,94 +9,71 @@ from sklearn.linear_model import LinearRegression as LR
 from patsy import dmatrix
 import pandas as pd
 
-from neat.Fitters.CurveFitting import AdditiveCurveFitter
+from neat.Fitters.CurveFitting import CurveFitter
 
 
 
-class GAM(AdditiveCurveFitter):
+class GAM(CurveFitter):
     """
     Generalized Additive Model with non-parametric, smoothed components
     """
 
-    def __init__(self, corrector_smoothers=None, predictor_smoothers=None, intercept=AdditiveCurveFitter.PredictionIntercept):
+    def __init__(self, covariate_smoothers=None, intercept=CurveFitter.IncludeIntercept):
 
-
-        if corrector_smoothers is None or not corrector_smoothers:
-            correctors = None
+        if covariate_smoothers is None or not covariate_smoothers:
+            covariates = None
         else:
-            correctors = corrector_smoothers.get_covariates()
+            covariates = covariate_smoothers.get_covariates()
 
-        if predictor_smoothers is None or not predictor_smoothers:
-            predictors = None
-        else:
-            predictors = predictor_smoothers.get_covariates()
         self._gam_intercept = intercept
         self.intercept_smoother = InterceptSmoother(1)
-        self.predictor_smoothers = SmootherSet(predictor_smoothers)
-        self.corrector_smoothers = SmootherSet(corrector_smoothers)
+        self.covariate_smoothers = SmootherSet(covariate_smoothers)
 
-        super(GAM, self).__init__(predictors=predictors, correctors=correctors, intercept=AdditiveCurveFitter.NoIntercept)
+        super(GAM, self).__init__(covariates=covariates, intercept=False)
 
-    def __fit__(self, correctors, predictors, observations, rtol=1.0e-08, maxiter=500, *args, **kwargs):
+    def __fit__(self, covariates, observations, rtol=1.0e-08, maxiter=500, *args, **kwargs):
 
         dims = observations.shape
-        for smoother, corr in zip(self.corrector_smoothers, correctors.T[1:]):
-            smoother.set_covariate(corr.reshape(dims[0], -1))
+        for smoother, cov in zip(self.covariate_smoothers, covariates.T[1:]):
+            smoother.set_covariate(cov.reshape(dims[0], -1))
 
-        for smoother, reg in zip(self.predictor_smoothers, predictors.T):
-            smoother.set_covariate(reg.reshape(dims[0], -1))
 
-        smoother_functions = SmootherSet(self.corrector_smoothers + self.predictor_smoothers)
-        crv_reg = []
-        crv_corr = []
+        smoother_functions = self.covariate_smoothers
+        crv_cov = []
         for obs in observations.T:
-            alpha, smoothers = self.__backfitting_algorithm(obs, smoother_functions, rtol=rtol, maxiter=maxiter, *args,
-                                                            **kwargs)
+            alpha, smoothers = self.__backfitting_algorithm(obs, smoother_functions, rtol=rtol,
+                                                            maxiter=maxiter, *args,**kwargs)
 
             self.intercept_smoother.set_parameters(alpha)
-            self.corrector_smoothers = SmootherSet(smoothers[:self.corrector_smoothers.n_smoothers])
-            self.predictor_smoothers = SmootherSet(smoothers[self.corrector_smoothers.n_smoothers:])
+            self.covariate_smoothers = smoothers
 
-            if self._gam_intercept == AdditiveCurveFitter.PredictionIntercept:
-                corr = self.__code_parameters(self.corrector_smoothers)
-                pred = np.concatenate((np.array([TYPE_SMOOTHER.index(InterceptSmoother), 1, self.alpha]),
-                                       self.__code_parameters(self.predictor_smoothers)))
-            else:
-                corr = np.concatenate((np.array([TYPE_SMOOTHER.index(InterceptSmoother), 1, self.alpha]),
-                                       self.__code_parameters(self.corrector_smoothers)))
-                pred = self.__code_parameters(self.predictor_smoothers)
+            cov = np.concatenate((np.array([TYPE_SMOOTHER.index(InterceptSmoother), 1, self.alpha]),
+                                  self.__code_parameters(self.covariate_smoothers)))
 
-            crv_corr.append(corr)
-            crv_reg.append(pred)
+            crv_cov.append(cov)
 
-        return (np.array(crv_corr).T, np.array(crv_reg).T)
 
-    def __predict__(self, predictors, prediction_parameters, *args, **kwargs):
+        return np.array(crv_cov).T
+
+    def __predict__(self, covariates, covariate_parameters, *args, **kwargs):
 
         y_predict = []
-        for pred_param in prediction_parameters.T:
+        for pred_param in covariate_parameters.T:
             indx_pred = 0
             indx_smthr = 0
+            y_pred = np.zeros((covariates.shape[0],))
             while indx_smthr < len(pred_param):
-                y_pred = np.zeros((predictors.shape[0],))
                 if pred_param[indx_smthr] == 0:
                     y_pred += pred_param[indx_smthr + 2]
-                    indx_smthr += pred_param[1] + 2
+                    indx_smthr += int(pred_param[indx_smthr+1]) + 2
                 else:
-                    pred = predictors[:, indx_pred]
+                    pred = covariates[:, indx_pred]
                     smoother = TYPE_SMOOTHER[int(pred_param[indx_smthr])](pred)
 
-                    ###### VALID!!!!! ####### for adContinuum
                     n_params = int(pred_param[indx_smthr + 1])
                     smoother.set_parameters(pred_param[indx_smthr + 2:indx_smthr + 2 + n_params])
                     indx_smthr += n_params + 2
-                    #########################
 
-                    ###### TEMPORAL!!! ####### for agingAPOE
-                    # n_params = 6
-                    # smoother.set_parameters(pred_param[indx_smthr + 1:indx_smthr + 1 + n_params])
-                    # indx_smthr += n_params + 1
-                    #########################
                     indx_pred += 1
                     y_pred += smoother.predict()
             y_predict.append(y_pred)
@@ -165,23 +142,7 @@ class GAM(AdditiveCurveFitter):
 
         return (alpha, smoother_functions)
 
-    def __df_correction__(self, observations, correctors, correction_parameters):
-
-        df, df_partial = [], []
-        for reg_param in correction_parameters.T:
-            y_pred = np.zeros((correctors.shape[0],))
-            if reg_param[0] == 0:
-                y_pred += reg_param[2]
-                indx_smthr = 3
-            else:
-                indx_smthr = 0
-            for corr in correctors.T:
-                smoother = TYPE_SMOOTHER[int(reg_param[indx_smthr])](corr)
-                df_partial.append(smoother.df_mo)
-        df.append(df_partial)
-        return np.asarray(df)
-
-    def __df_prediction__(self, observations, predictors, prediction_parameters):
+    def __df_fitting__(self, observations, predictors, prediction_parameters):
         df = []
         for obs, pred_param in zip(observations.T, prediction_parameters.T):
             indx_smthr = 0
@@ -191,27 +152,22 @@ class GAM(AdditiveCurveFitter):
             while indx_smthr < len(pred_param):
                 if pred_param[indx_smthr] == 0:
                     y_pred += pred_param[2]
-                    indx_smthr += pred_param[1] + 2
+                    indx_smthr += int(pred_param[indx_smthr + 1]) + 2
+                    df_partial += 1
+
                 else:
-                    indx_smthr = 0
-                for pred in predictors.T:
+
                     pred = predictors[:, indx_pred]
                     smoother = TYPE_SMOOTHER[int(pred_param[indx_smthr])](pred)
 
-                    ###### VALID!!!!! ####### for adContinuum
                     n_params = int(pred_param[indx_smthr + 1])
                     df_partial += smoother.df_model(obs, pred_param[indx_smthr + 2:indx_smthr + 2 + n_params])
                     indx_smthr += n_params + 2
-                    #########################
-
-                    ###### TEMPORAL!!! ####### for agingApoe
-                    # n_params = 6
-                    # df_partial += smoother.df_model(obs, pred_param[indx_smthr + 1:indx_smthr + 1 + n_params])
-                    # indx_smthr += n_params + 1
-                    #########################
 
                     indx_pred += 1
+
             df.append(df_partial)
+
         return np.asarray(df)
 
 
@@ -305,12 +261,6 @@ class SplinesSmoother(Smoother):
         spline = UnivariateSpline(self.xdata, ydata[self.index_xdata], k=self.order, s=self.smoothing_factor,
                                   w=weights)
         return len(spline.get_coeffs())
-
-    def df_resid(self, ydata, parameters=None):
-        """
-        Residual degrees of freedom from last fit.
-        """
-        return ydata.shape[0] - self.df_model(ydata, parameters=parameters)
 
     def fit(self, ydata, *args, **kwargs):
 
@@ -470,12 +420,6 @@ class RegressionSplinesSmoother(Smoother):
 
         return self.df
 
-    def df_resid(self, ydata, parameters=None):
-        if parameters is not None:
-            self.set_parameters(parameters)
-
-        return ydata.shape[0] - self.df_model(ydata,parameters=parameters)
-
     def fit(self, ydata, *args, **kwargs):
         if self.spline_type == RegressionSplinesSmoother._spline_type_list.index('bs'):
             transformed_matrix = dmatrix("bs(predictor, df="+str(self.df)+",include_intercept=False)",
@@ -555,6 +499,7 @@ class RegressionSplinesSmoother(Smoother):
     @staticmethod
     def name():
         return RegressionSplinesSmoother._name
+
 
 class PolynomialSmoother(Smoother):
     """
@@ -636,11 +581,6 @@ class PolynomialSmoother(Smoother):
 
         return self.order + 1
 
-    def df_resid(self, ydata, parameters=None):
-        """
-        Residual degrees of freedom from last fit.
-        """
-        return self._N - self.df_model(parameters=parameters)
 
 class InterceptSmoother(Smoother):
     _name = 'InterceptSmoother'
@@ -755,44 +695,6 @@ class KernelSmoother(Smoother):
         Degrees of freedom used in the fit.
         """
         return self.Kernel.df(self.xdata)
-
-    def df_resid(self, ydata, parameters=None):
-        """
-        Residual degrees of freedom from last fit.
-        """
-        return self._N - self.df_model()
-
-    # def conf(self, x):
-    #     """
-    #     Returns the fitted curve and 1-sigma upper and lower point-wise
-    #     confidence.
-    #     These bounds are based on variance only, and do not include the bias.
-    #     If the bandwidth is much larger than the curvature of the underlying
-    #     funtion then the bias could be large.
-    #
-    #     x is the points on which you want to evaluate the fit and the errors.
-    #
-    #     Alternatively if x is specified as a positive integer, then the fit and
-    #     confidence bands points will be returned after every
-    #     xth sample point - so they are closer together where the data
-    #     is denser.
-    #     """
-    #     if isinstance(x, int):
-    #         sorted_x = np.array(self.x)
-    #         sorted_x.sort()
-    #         confx = sorted_x[::x]
-    #         conffit = self.conf(confx)
-    #         return (confx, conffit)
-    #     else:
-    #         return np.array([self.Kernel.smoothconf(self.x, self.y, xx)
-    #                          for xx in x])
-    #
-    # def var(self, x):
-    #     return np.array([self.Kernel.smoothvar(self.x, self.y, xx) for xx in x])
-    #
-    # def std(self, x):
-    #     return np.sqrt(self.var(x))
-    #
 
 
 class GaussianKernel:

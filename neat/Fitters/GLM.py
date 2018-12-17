@@ -1,11 +1,11 @@
 import numpy as np
 from sklearn.linear_model import LinearRegression as LR
 
-from neat.Fitters.CurveFitting import AdditiveCurveFitter
+from neat.Fitters.CurveFitting import CurveFitter
 from neat.Utils.Transforms import polynomial
 
 
-class GLM(AdditiveCurveFitter):
+class GLM(CurveFitter):
     ''' Class that implements the General Linear Method.
 
         This method assumes the following situation:
@@ -46,7 +46,7 @@ class GLM(AdditiveCurveFitter):
     '''
 
     @staticmethod
-    def __predict__(predictors, prediction_parameters, *args, **kwargs):
+    def __predict__(covariates, covariate_parameters, *args, **kwargs):
         '''Computes a prediction applying the prediction function used in GLM.
 
             Parameters:
@@ -66,23 +66,18 @@ class GLM(AdditiveCurveFitter):
                 - Prediction: NxM (2-dimensional) matrix, containing N predicted values for each of the M variables,
                     result of computing the expression 'predictors * prediction_parameters' (matrix multiplication).
         '''
-        return predictors.dot(prediction_parameters)
+        return covariates.dot(covariate_parameters)
 
     @staticmethod
-    def __fit__(correctors, predictors, observations, sample_weight=None, n_jobs=-1, *args, **kwargs):
+    def __fit__(covariates, observations, sample_weight=None, n_jobs=-1, *args, **kwargs):
         '''Computes the correction and prediction parameters that best fit the observations according to the
             General Linear Model.
 
             Parameters:
 
-                - correctors: NxC (2-dimensional) matrix, representing the covariates, i.e., features that
+                - covariates: NxC (2-dimensional) matrix, representing the covariates, i.e., features that
                     (may) explain a part of the observational data in which we are not interested, where C
                     is the number of correctors and N the number of elements for each corrector.
-
-                - predictors: NxR (2-dimensional) matrix, representing the predictors, i.e., features to be used
-                    to try to explain/predict the observations (experimental data), where R is the number of
-                    predictors and N the number of elements for each predictor (the latter is ensured to be the
-                    same as that in the 'correctors' argument).
 
                 - observations: NxM (2-dimensional) matrix, representing the observational data, i.e., values
                     obtained by measuring the variables of interest, whose behaviour is wanted to be explained
@@ -100,11 +95,6 @@ class GLM(AdditiveCurveFitter):
 
             Returns:
 
-                - Correction parameters: CxM (2-dimensional) matrix, representing the parameters that best fit
-                    the correctors to the observations for each variable, where M is the number of variables
-                    (same as that in the 'observations' argument) and C is the number of correction parameters
-                    for each variable (same as the number of correctors).
-
                 - Regression parameters: RxM (2-dimensional) matrix, representing the parameters that best fit
                     the predictors to the corrected observations for each variable, where M is the number of
                     variables (same as that in the 'observations' argument) and R is the number of prediction
@@ -114,55 +104,34 @@ class GLM(AdditiveCurveFitter):
 
         curve = LR(fit_intercept=False, normalize=False, copy_X=False, n_jobs=n_jobs)
 
-        ncols = correctors.shape[1]
-        dims = (correctors.shape[0], ncols + predictors.shape[1])
-        xdata = np.zeros(dims)
-        xdata[:, :ncols] = correctors.view()
-        xdata[:, ncols:] = predictors.view()
+        xdata = covariates.view()
 
         curve.fit(xdata, observations, sample_weight)
         params = curve.coef_.T
-        return (params[:ncols], params[ncols:])
+        return params
 
-    #        # Divided-optimization approach
-    #
-    #        curve = LR(fit_intercept = False, normalize = False, copy_X = False, n_jobs = num_threads)
-    #
-    #        curve.fit(correctors, observations, sample_weight)
-    #        cparams = curve.coef_.T
-    #
-    #        corrected_data = observations - correctors.dot(cparams)
-    #
-    #        curve.fit(predictors, corrected_data, sample_weight)
-    #        pparams = curve.coef_.T
-    #
-    #        return (cparams, pparams)
+    def __df_fitting__(self, observations, covariates, covariate_parameters):
+        return np.ones((1, observations.shape[1])) * covariates.shape[1]
 
-    def __df_correction__(self, observations, correctors, correction_parameters):
-        return np.ones((1, observations.shape[1])) * correctors.shape[1]
+    def num_estimated_parameters(self, covariate_parameters):
+        return covariate_parameters.shape[0] + 1
 
-    def __df_prediction__(self, observations, predictors, prediction_parameters):
-        return np.ones((1, observations.shape[1])) * predictors.shape[1]
-
-    def num_estimated_parameters(self, correction_parameters, prediction_parameters):
-        return correction_parameters.shape[0] + prediction_parameters.shape[0] + 1
-
-    def max_loglikelihood_value(self, corrected_data, predictors, prediction_parameters):
+    def max_loglikelihood_value(self, observations, covariates, covariate_parameters):
         # Compute residuals
         # corrected_values = self.correct(observations, correctors, correction_parameters)
-        residuals = corrected_data - self.predict(predictors, prediction_parameters)
+        residuals = observations - self.predict(covariates, covariate_parameters)
 
         # Compute residual sum of squares
         rss = np.sum(np.square(residuals), axis=0)
 
         # Number of samples N
-        n = corrected_data.shape[0]
+        n = observations.shape[0]
 
         return (-n / 2) * (np.log(2 * np.pi) + np.log(rss) - np.log(n) + 1)
 
 
 class PolyGLM(GLM):
-    def __init__(self, features, predictors=None, degrees=None, intercept=AdditiveCurveFitter.NoIntercept):
+    def __init__(self, features, degrees=None, intercept=CurveFitter.IncludeIntercept):
         '''[Constructor]
 
             Parameters:
@@ -193,25 +162,26 @@ class PolyGLM(GLM):
         if len(self._pglm_features.shape) != 2:
             raise ValueError('Argument \'features\' must be a 2-dimensional matrix')
         self._pglm_features = self._pglm_features.T
+        self._pglm_is_predictor = [True] * len(self._pglm_features)
 
-        if predictors is None:
-            self._pglm_is_predictor = [True] * len(self._pglm_features)
-            predictors = []
-        else:
-            self._pglm_is_predictor = [False] * len(self._pglm_features)
-            if isinstance(predictors, int):
-                predictors = [predictors]
-
-        try:
-            for r in predictors:
-                try:
-                    self._pglm_is_predictor[r] = True
-                except TypeError:
-                    raise ValueError('All elements in argument \'predictors\' must be valid indices')
-                except IndexError:
-                    raise IndexError('Index out of range in argument \'predictors\'')
-        except TypeError:
-            raise TypeError('Argument \'predictors\' must be iterable or int')
+        # if predictors is None:
+        #     self._pglm_is_predictor = [True] * len(self._pglm_features)
+        #     predictors = []
+        # else:
+        #     self._pglm_is_predictor = [False] * len(self._pglm_features)
+        #     if isinstance(predictors, int):
+        #         predictors = [predictors]
+        #
+        # try:
+        #     for r in predictors:
+        #         try:
+        #             self._pglm_is_predictor[r] = True
+        #         except TypeError:
+        #             raise ValueError('All elements in argument \'predictors\' must be valid indices')
+        #         except IndexError:
+        #             raise IndexError('Index out of range in argument \'predictors\'')
+        # except TypeError:
+        #     raise TypeError('Argument \'predictors\' must be iterable or int')
 
         if degrees is None:
             self._pglm_degrees = [1] * len(self._pglm_features)
@@ -233,67 +203,49 @@ class PolyGLM(GLM):
     def __pglm_update_GLM(self):
         '''Private function. Not meant to be used by anyone outside the PolyGLM class.
         '''
-        correctors = []
-        predictors = []
+        covariates = []
         for index in range(len(self._pglm_is_predictor)):
             for p in polynomial(self._pglm_degrees[index], [self._pglm_features[index]]):
-                if self._pglm_is_predictor[index]:
-                    predictors.append(p)
-                else:
-                    correctors.append(p)
+                covariates.append(p)
 
-        if len(correctors) == 0:
-            correctors = None
+        if len(covariates) == 0:
+            covariates = None
         else:
-            correctors = np.array(correctors).T
+            covariates = np.array(covariates).T
 
-        if len(predictors) == 0:
-            predictors = None
-        else:
-            predictors = np.array(predictors).T
-
-        super(PolyGLM, self).__init__(predictors, correctors, self._pglm_intercept)
+        super(PolyGLM, self).__init__(covariates, self._pglm_intercept)
 
     @property
-    def lin_correctors(self):
-        '''Matrix containing the linear terms of the features that are interpreted as correctors in the model.
-        '''
-        r = [self._pglm_features[i] for i in range(len(self._pglm_is_predictor)) if not self._pglm_is_predictor[i]]
-        return np.array(r).copy().T
-
-    @property
-    def lin_predictors(self):
+    def lin_covariates(self):
         '''Matrix containing the linear terms of the features that are interpreted as predictors in the model.
         '''
         r = [self._pglm_features[i] for i in range(len(self._pglm_is_predictor)) if self._pglm_is_predictor[i]]
         return np.array(r).copy().T
 
-    def set_predictors(self, predictors):
+    def set_covariates(self, covariates):
         '''Reselects the predictors of the model.
 
             Parameters:
 
-                - predictors: int / iterable object (default None), containing the index/indices of the
+                - covariates: int / iterable object (default None), containing the index/indices of the
                     column(s) in the 'features' matrix that must be used as predictors. If set to None,
                     all the columns of such matrix will be interpreted as predictors.
 
             Modifies:
 
-                - Correctors: the new correctors are set, deorthogonalized and denormalized.
-
-                - Regressors: the new predictors are set, deorthogonalized and denormalized.
+                - Covariates: the new covariates are set, deorthogonalized and denormalized.
 
                 - [deleted] Correction parameters
 
                 - [deleted] Regression parameters
         '''
-        if predictors is None:
+        if covariates is None:
             pglm_is_predictor = [True] * len(self._pglm_features)
             predictors = []
         else:
             pglm_is_predictor = [False] * len(self._pglm_features)
-            if isinstance(predictors, int):
-                predictors = [predictors]
+            if isinstance(covariates, int):
+                predictors = [covariates]
 
         try:
             for r in predictors:

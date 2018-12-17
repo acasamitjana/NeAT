@@ -62,8 +62,8 @@ if __name__ == '__main__':
 
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
-    affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+    subjects, covariate_names, covariates, processing_parameters, affine_matrix, output_dir, \
+    results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
     if type_data == 'surf':
         if hemi == '':
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         print(pathname)
         for p in glob(pathname):
             n, _, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                p, results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             names.append(n)
@@ -104,7 +104,7 @@ if __name__ == '__main__':
                 print('{} does not exist or contain any result.'.format(full_path))
                 continue
             n, _, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                pathname[0], results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                pathname[0], results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             names.append(n)
@@ -203,14 +203,12 @@ if __name__ == '__main__':
                 curve = curve.reshape((axis.shape[1], -1))
 
             else:
-
                 # Get corrected grey matter data
                 corrected_data = processors[i].corrected_values(
                     correction_parameters[i],
                     x1=x,
                     x2=x + 1,
                 )
-
 
                 # Get curves
                 axis, curve = processors[i].curve(
@@ -242,11 +240,12 @@ if __name__ == '__main__':
                 color=AVAILABLE_COLORS[color_counter]
             )
 
+
             # Next color
             color_counter = color_counter + 1 if ((color_counter + 1) % len(AVAILABLE_COLORS)) != 0 else 0
             # Plot info
             plt.legend(fontsize='x-small')
-            plt.xlabel(predictors_names[0], fontsize='xx-large')
+            plt.xlabel(processors[i].predictor_names[0], fontsize='xx-large')
             plt.ylabel('Grey matter', fontsize='xx-large')
             if type_data == 'vol':
                 plt_title = 'Coordinates: ' + \

@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 import nibabel as nib
 
 from neat import helper_functions
-from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Processors.MixedProcessor import MixedProcessor, MixedSurfaceProcessor, MixedVolumeProcessor
 from neat.Utils.niftiIO import ParameterWriter
 
 
@@ -48,8 +48,8 @@ if __name__ == '__main__':
     hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
-    affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+    subjects, covariate_names, covariates, processing_parameters,  affine_matrix, output_dir, \
+    results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
     if type_data == 'surf':
         if hemi == '':
@@ -89,15 +89,33 @@ if __name__ == '__main__':
     # Create MixedProcessor instance
     initial_category = categories[0] if (categories is not None and len(categories)) > 0 else None
     # try:
-    processor = MixedProcessor(subjects,
-                               predictors_names,
-                               correctors_names,
-                               predictors,
-                               correctors,
-                               processing_parameters,
-                               user_defined_parameters=udp,
-                               category=initial_category,
-                               type_data=type_data)
+
+    if type_data == 'surf':
+        processor = MixedSurfaceProcessor(subjects,
+                                          covariate_names,
+                                          covariates,
+                                          processing_parameters,
+                                          user_defined_parameters=udp,
+                                          category=initial_category,
+                                          type_data=type_data)
+
+    elif type_data == 'vol':
+        processor = MixedVolumeProcessor(subjects,
+                                         covariate_names,
+                                         covariates,
+                                         processing_parameters,
+                                         user_defined_parameters=udp,
+                                         category=initial_category,
+                                         type_data=type_data)
+
+    else:
+        processor = MixedProcessor(subjects,
+                                   covariate_names,
+                                   covariates,
+                                   processing_parameters,
+                                   user_defined_parameters=udp,
+                                   category=initial_category,
+                                   type_data=type_data)
     # User defined parameters
     udp = processor.user_defined_parameters
     print(udp)

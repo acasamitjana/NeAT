@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, affine_matrix, \
+    subjects, covariate_names, covariates, processing_parameters, affine_matrix, \
     output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
     template = helper_functions.load_template_from_config_file(config_file)
 
@@ -166,12 +166,14 @@ if __name__ == '__main__':
             continue
 
         n, cat, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-            pathname[0], results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+            pathname[0], results_io, subjects, covariate_names, covariates,
             processing_parameters, type_data
         )
 
         plot_label = '{} / '.format(n)
         plot_label += cat if cat is not None else 'All subjects'
+        # visualizer.add_curve_processor(processor=proc, prediction_parameters=pred_p,
+        #                                label=plot_label)
         visualizer.add_curve_processor(processor=proc, prediction_parameters=pred_p, correction_parameters=corr_p,
                                        label=plot_label)
 

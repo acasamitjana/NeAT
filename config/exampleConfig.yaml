@@ -33,12 +33,12 @@ model:
   # If there is no category identifier for this study, put No
   category_identifier: 'category'
 
-  # Identifier that should be used as a predictor
-  predictor_identifier:
+  # Identifier that should be used as covariates
+  covariate_identifiers:
     - 'biomarker'
+    - 'age'
+    - 'sex'
 
-  # List of identifiers that should be used as correctors
-  correctors_identifiers:
 
 # --------------------------------------------------------------------------------------------------------------------
 

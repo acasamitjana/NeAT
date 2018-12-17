@@ -74,7 +74,8 @@ if __name__ == '__main__':
     arguments_parser.add_argument('--labels', default=True,
                                   help='Produce a map that has one label per cluster.')
 
-    arguments_parser.add_argument('--hemi', default ='',choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.')
+    arguments_parser.add_argument('--hemi', default ='',choices=HEMI_CHOICE, help='Mandatory for surface-based analysis.'
+                                                                                  'Please, speciy either left or right.')
 
     arguments = arguments_parser.parse_args()
     config_file = arguments.configuration_file
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     hemi = HEMI_CHOICE[arguments.hemi]
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
+    subjects, covariate_names, covariates, processing_parameters, \
     affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
     if type_data == 'surf':
@@ -104,7 +105,7 @@ if __name__ == '__main__':
         print(pathname)
         for p in glob(pathname):
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                p, results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             print()
@@ -112,14 +113,14 @@ if __name__ == '__main__':
             if category is not None:
                 print('({})'.format(category), end="")
             print("\n{} progress: ".format(method))
-            try:
-                results = helper_functions.compute_fitting_scores(
-                    proc, method, method_func, pred_p, corr_p, cluster_size, p_thresholds, gamma,
-                    percentile_filter, gm_threshold, labels
-                )
-            except RuntimeError:
-                print('{} is not supported by this fitter. Try another fit evaluation method.'.format(method))
-                continue
+            # try:
+            results = helper_functions.compute_fitting_scores(
+                proc, method, method_func, pred_p, corr_p, cluster_size, p_thresholds, gamma,
+                percentile_filter, gm_threshold, labels
+            )
+            # except RuntimeError:
+            #     print('{} is not supported by this fitter. Try another fit evaluation method.'.format(method))
+            #     continue
             print('Storing fitting results')
             folder_name = path.split(p)[0]
             for name, data in results:
@@ -136,7 +137,7 @@ if __name__ == '__main__':
                 continue
 
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                pathname[0], results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                pathname[0], results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             print()
