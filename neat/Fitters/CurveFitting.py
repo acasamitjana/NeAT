@@ -376,12 +376,12 @@ class CurveFitter(object):
 
             Parameters:
 
-                - predictors: NxR (2-dimensional) matrix (default None), representing the predictors, i.e., features
+                - covariates: NxR (2-dimensional) matrix (default None), representing the predictors, i.e., features
                     to be used to try to explain/predict the observations (experimental data), where R is the number
                     of predictors and N the number of elements for each predictor. If set to None, the predictors of
                     the instance will be used.
 
-                - prediction_parameters: array-like structure of shape (Kr, X1, ..., Xn) (default None), representing
+                - covariate_parameters: array-like structure of shape (Kr, X1, ..., Xn) (default None), representing
                     the parameters to fit the predictors to the corrected observations for each variable, where M =
                     X1*...*Xn is the number of variables and Kr is the number of prediction parameters for each
                     variable. If set to None, the prediction parameters obtained in the last call to 'fit' will be
@@ -414,6 +414,7 @@ class CurveFitter(object):
             dims = params.shape
             # Make matrix 2-dimensional
             params = params.reshape(dims[0], -1)
+
 
         if 0 in dims:
             raise ValueError('There are no elements in argument \'prediction_parameters\'')

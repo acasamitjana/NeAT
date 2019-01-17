@@ -38,7 +38,7 @@ class GUIVisualizer(object):
                 self._template_shape))
 
         if len(np.unique(image)) < 10: #assume categorical
-            min = 1
+            min = 0
             max = np.max(image)
             image = (image - min).astype(float) / (max - min)
         else:
@@ -161,6 +161,7 @@ class GUIVisualizer(object):
             ax.clear()
             ax.imshow(cut(new_voxel), interpolation='nearest')
 
+
             (xdata, ydata), (width, height) = xydata[i]
             ax.add_line(mplline(xdata=[0, width], ydata=[ydata, ydata], linewidth=1, color='green'))
             ax.add_line(mplline(xdata=[xdata, xdata], ydata=[0, height], linewidth=1, color='green'))
@@ -169,6 +170,9 @@ class GUIVisualizer(object):
                 item.set_fontsize(8)
             for item in ax.get_yticklabels():
                 item.set_fontsize(8)
+
+            if np.remainder(i,2) == 0:
+                ax.set_ylabel('R')
 
         self._ax[1, 1].clear()
 
@@ -283,7 +287,7 @@ class GUIVisualizer(object):
                 cmap = cm.get_cmap(cmap)
                 img = cmap(img)
 
-            Cfg, Afg = img[:, :, :, :3], img[:, :, :, 3]
+            Cfg, Afg = img[:, :, :, :3], img[:, :, :, 3] #3-D colormap & 1-D mask
             Cbg, Abg = self._rgba_image[:, :, :, :3], self._rgba_image[:, :, :, 3]
 
             Ar = Afg + Abg * (1 - Afg)

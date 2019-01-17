@@ -194,9 +194,9 @@ class GAMProcessor(Processor):
         return (intercept, perp_norm_option, smoothing_functions)
 
     def __curve__(self, fitter, covariates, covariate_parameters, *args, **kwargs):
-        gam = GAM()
+        gam = GAM(covariates=covariates)
         GAMProcessor._gamprocessor_perp_norm_options_list[self._gamprocessor_perp_norm_option](gam)
-        return gam.predict(predictors=covariates, prediction_parameters=covariate_parameters)
+        return gam.predict(covariates=covariates, covariate_parameters=covariate_parameters)
 
     def get_name(self):
         if self._gamprocessor_smoother_parameters[0] == 1:

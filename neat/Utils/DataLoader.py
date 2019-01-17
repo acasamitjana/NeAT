@@ -66,7 +66,7 @@ class DataLoader(object):
         id_identifier = self._conf['model']['id_identifier']  # ID identifier
         id_type = int if self._conf['model']['id_type'] == 'Number' else str
         category_identifier = self._conf['model']['category_identifier']  # Category identifier
-        fields_names = []
+        fields_names = [category_identifier]
         fields_names = fields_names + list(self._conf['model']['covariate_identifiers'])  # Covariates
 
         # Load excel file
@@ -443,6 +443,30 @@ class DataLoader(object):
 
         """
         return self._conf['input']['extension']
+
+    def get_categories_identifier(self):
+        return self._conf['model']['category_identifier']
+
+    def get_category(self, start=None, end=None, use_cache=True):
+        # Get subjects
+        if use_cache and (len(self._cached_subjects) > 0) and (self._start == start) and (self._end == end):
+            subjects = self._cached_subjects
+        else:
+            subjects = self.get_subjects(start, end)
+            # Update cache
+            self._cached_subjects = subjects
+            self._start = start
+            self._end = end
+
+        # Get predictors
+        # features = [0]*len(subjects)
+        if self._conf['model']['category_identifier'] is not None:
+            feature_names = [self._conf['model']['category_identifier']]
+            features = list(map(lambda subject: subject.get_parameters(feature_names), subjects))
+        else:
+            features = np.zeros((len(subjects), 1))
+
+        return np.asarray(features)[:,0]
 
     def get_prefix(self):
         return self._conf['input']['study_prefix']

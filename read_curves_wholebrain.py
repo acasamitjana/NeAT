@@ -36,7 +36,7 @@ if __name__ == '__main__':
     correction_parameters = []
     processors = []
 
-    """ LOAD DATA TO SHOW CURVES """
+    """ LOAD CURVES """
     print('Loading results data...')
     print()
     for directory in dirs:

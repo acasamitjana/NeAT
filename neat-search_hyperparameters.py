@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from neat import helper_functions
 from neat.CrossValidation.GridSearch import GridSearch
 from neat.CrossValidation.score_functions import anova_error, mse, statisticC_p
-from neat.Processors.MixedProcessor import MixedProcessor
+from neat.Processors.MixedProcessor import MixedProcessor, MixedSurfaceProcessor, MixedVolumeProcessor
 
 if __name__ == '__main__':
 
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     prefix = arguments.prefix
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
-    affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+    subjects, covariate_names, covariates, processing_parameters,  affine_matrix, output_dir, \
+    results_io, type_data = helper_functions.load_data_from_config_file(config_file)
 
     if parameters:
         # Load user defined parameters
@@ -101,17 +101,33 @@ if __name__ == '__main__':
     except TypeError:
         dummy_cat = None
 
-    processor = MixedProcessor(
-        subjects,
-        predictors_names,
-        correctors_names,
-        predictors,
-        correctors,
-        processing_parameters,
-        user_defined_parameters=udp,
-        category=dummy_cat,
-        type_data=type_data
-    )
+    # Create processor for this category
+    if type_data == 'surf':
+        processor = MixedSurfaceProcessor(subjects,
+                                          covariate_names,
+                                          covariates,
+                                          processing_parameters,
+                                          user_defined_parameters=udp,
+                                          category=dummy_cat,
+                                          type_data=type_data)
+
+    elif type_data == 'vol':
+        processor = MixedVolumeProcessor(subjects,
+                                         covariate_names,
+                                         covariates,
+                                         processing_parameters,
+                                         user_defined_parameters=udp,
+                                         category=dummy_cat,
+                                         type_data=type_data)
+
+    else:
+        processor = MixedProcessor(subjects,
+                                   covariate_names,
+                                   covariates,
+                                   processing_parameters,
+                                   user_defined_parameters=udp,
+                                   category=dummy_cat,
+                                   type_data=type_data)
 
     # Check if prediction processor is available for grid searching
     prediction_fitter_name = processor.prediction_processor.get_name()
@@ -132,16 +148,32 @@ if __name__ == '__main__':
             print('////////////////')
             print()
 
-            # Create MixedProcessor instance
-            processor = MixedProcessor(subjects,
-                                       predictors_names,
-                                       correctors_names,
-                                       predictors,
-                                       correctors,
-                                       processing_parameters,
-                                       category=category,
-                                       user_defined_parameters=udp,
-                                       type_data=type_data)
+            if type_data == 'surf':
+                processor = MixedSurfaceProcessor(subjects,
+                                                  covariate_names,
+                                                  covariates,
+                                                  processing_parameters,
+                                                  user_defined_parameters=udp,
+                                                  category=category,
+                                                  type_data=type_data)
+
+            elif type_data == 'vol':
+                processor = MixedVolumeProcessor(subjects,
+                                                 covariate_names,
+                                                 covariates,
+                                                 processing_parameters,
+                                                 user_defined_parameters=udp,
+                                                 category=category,
+                                                 type_data=type_data)
+
+            else:
+                processor = MixedProcessor(subjects,
+                                           covariate_names,
+                                           covariates,
+                                           processing_parameters,
+                                           user_defined_parameters=udp,
+                                           category=category,
+                                           type_data=type_data)
 
             """ RESULTS DIRECTORY """
             cat_str = 'category_{}'.format(category)
@@ -183,14 +215,29 @@ if __name__ == '__main__':
             grid_search.plot_error('error_plot')
 
     else:
-        processor = MixedProcessor(subjects,
-                                   predictors_names,
-                                   correctors_names,
-                                   predictors,
-                                   correctors,
-                                   processing_parameters,
-                                   user_defined_parameters=udp,
-                                   type_data=type_data)
+        if type_data == 'surf':
+            processor = MixedSurfaceProcessor(subjects,
+                                              covariate_names,
+                                              covariates,
+                                              processing_parameters,
+                                              user_defined_parameters=udp,
+                                              type_data=type_data)
+
+        elif type_data == 'vol':
+            processor = MixedVolumeProcessor(subjects,
+                                             covariate_names,
+                                             covariates,
+                                             processing_parameters,
+                                             user_defined_parameters=udp,
+                                             type_data=type_data)
+
+        else:
+            processor = MixedProcessor(subjects,
+                                       covariate_names,
+                                       covariates,
+                                       processing_parameters,
+                                       user_defined_parameters=udp,
+                                       type_data=type_data)
         """ RESULTS DIRECTORY """
         output_folder_name = '{}-{}-{}-{}'.format(
             prefix,

@@ -251,7 +251,7 @@ class GLMProcessor(Processor):
         glm = GLM(covariates=np.array(predictors).T,
                   intercept=GLMProcessor._glmprocessor_intercept_options_list[self._glmprocessor_intercept])
         treat_data = GLMProcessor._glmprocessor_perp_norm_options_list[self._glmprocessor_perp_norm_option]
-        treat_data(GLM)
+        treat_data(glm)
         # Get the prediction parameters for the original features matrix
 
 
@@ -460,7 +460,7 @@ class PolyGLMProcessor(Processor):
         pglm = PGLM(covariates, degrees=self._pglmprocessor_degrees,
                     intercept=PolyGLMProcessor._pglmprocessor_intercept_options_list[self._pglmprocessor_intercept])
         treat_data = GLMProcessor._glmprocessor_perp_norm_options_list[self._pglmprocessor_perp_norm_option]
-        treat_data(GLM)
+        treat_data(pglm)
 
         # Call the normal function with such parameters
         return pglm.predict(covariate_parameters=covariate_parameters)

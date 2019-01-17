@@ -13,17 +13,23 @@ class PolySVRProcessor(Processor):
     """
     _psvrprocessor_perp_norm_options_names = [
         'Normalize covariates',
-        'Use covariates as they are'
+        'Use covariates as they are',
+        'Orthonormalize covariates',
+        'Orthogonalize covariates'
     ]
 
     _psvrprocessor_perp_norm_options_list = [
         PolySVR.normalize_covariates,
-        lambda *args, **kwargs: zeros((0, 0))
+        lambda *args, **kwargs: zeros((0, 0)),
+        PolySVR.orthonormalize_covariates,
+        PolySVR.orthogonalize_covariates,
     ]
 
     _psvrprocessor_perp_norm_options = {
         'Normalize covariates': 0,
-        'Use covariates as they are': 1
+        'Use covariates as they are': 1,
+        'Orthonormalize covariates': 2,
+        'Orthogonalize covariates': 3
     }
 
     _psvrprocessor_intercept_options_names = [
@@ -131,7 +137,7 @@ class PolySVRProcessor(Processor):
         # Create a new PolySVR fitter to return the curve prediction
         psvr = PolySVR(covariates, degrees=self._psvrprocessor_degrees[:1], intercept=self._psvrprocessor_intercept)
         PolySVRProcessor._psvrprocessor_perp_norm_options_list[self._psvrprocessor_perp_norm_option](psvr)
-        return psvr.predict(prediction_parameters=covariate_parameters)
+        return psvr.predict(covariate_parameters=covariate_parameters)
 
     def process(self, x1=0, x2=None, y1=0, y2=None, z1=0, z2=None,
                 mem_usage=None, evaluation_kwargs={}, *args, **kwargs):
@@ -153,18 +159,23 @@ class GaussianSVRProcessor(Processor):
     """
     _gsvrprocessor_perp_norm_options_names = [
         'Normalize covariates',
-        'Use covariates as they are'
+        'Use covariates as they are',
+        'Orthonormalize covariates',
+        'Orthogonalize covariates'
     ]
 
     _gsvrprocessor_perp_norm_options_list = [
         GaussianSVR.normalize_covariates,
-
-        lambda *args, **kwargs: zeros((0, 0))
+        lambda *args, **kwargs: zeros((0, 0)),
+        GaussianSVR.orthonormalize_covariates,
+        GaussianSVR.orthogonalize_covariates,
     ]
 
     _gsvrprocessor_perp_norm_options = {
         'Normalize covariates': 0,
-        'Use covariates as they are': 1
+        'Use covariates as they are': 1,
+        'Orthonormalize covariates':2,
+        'Orthogonalize covariates':3
     }
 
     _gsvrprocessor_intercept_options_names = [

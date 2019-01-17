@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from neat.Utils.DataLoader import DataLoader
 from neat import helper_functions
 
 if __name__ == '__main__':
@@ -44,8 +45,23 @@ if __name__ == '__main__':
     dirs = arguments.dirs
 
     """ LOAD DATA USING DATALOADER """
-    subjects, predictors_names, correctors_names, predictors, correctors, processing_parameters, \
-    affine_matrix, output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+    subjects, covariate_names, covariates, processing_parameters, affine_matrix, output_dir, \
+    results_io, type_data = helper_functions.load_data_from_config_file(config_file)
+
+    if plot_name == "categorical_boxplot":
+        try:
+            data_loader = DataLoader(config_file)
+
+        except IOError as e:
+            print()
+            print(e.filename + ' does not exist.')
+            data_loader = None
+            exit(1)
+
+        category_features = data_loader.get_category()
+        print(category_features.shape)
+
+
 
     # Lists to store the necessary data to show the curves
     names = []
@@ -61,7 +77,7 @@ if __name__ == '__main__':
         pathname = path.join(output_dir, '**', '*prediction_parameters.mha')
         for p in glob(pathname):
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                p, results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                p, results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
             names.append(n)
@@ -80,13 +96,15 @@ if __name__ == '__main__':
                 print('{} does not exist or contain any result.'.format(full_path))
                 continue
             n, category, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-                pathname[0], results_io, subjects, predictors_names, correctors_names, predictors, correctors,
+                pathname[0], results_io, subjects, covariate_names, covariates,
                 processing_parameters, type_data
             )
+
             names.append(n)
             prediction_parameters.append(pred_p)
             correction_parameters.append(corr_p)
             processors.append(proc)
+
 
     if len(processors) == 0:
         print('There are no results to be shown. Use compute_fitting.py first to generate them.')
@@ -203,9 +221,9 @@ if __name__ == '__main__':
                         x2=x + 1,
                     ))
                 }
-            for ind, p_name in enumerate(predictors_names):
+            for ind, p_name in enumerate(processors[i].predictor_names):
                 options[p_name] = processors[i].predictors[:, ind]
-            for ind, c_name in enumerate(correctors_names):
+            for ind, c_name in enumerate(processors[i].corrector_names):
                 options[c_name] = processors[i].correctors[:, ind]
 
             """ ASK FOR INPUT """
@@ -283,7 +301,13 @@ if __name__ == '__main__':
                 print('__________________________________')
                 print()
             elif plot_name == 'categorical_boxplot':
-                cat_data_dict[label] = pd.Series(data=x_data, name=x_option_input)
+                if cat == None:
+                    categories = np.unique(category_features)
+                    for cat in categories:
+                        label = 'Category {}'.format(cat) if cat is not None else 'All categories'
+                        indices = np.where(category_features==cat)
+                        print(indices)
+                        cat_data_dict[label] = pd.Series(data=x_data[indices], name=x_option_input)
             else:
                 print('This plot option is not available.')
                 exit(1)

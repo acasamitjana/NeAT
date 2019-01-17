@@ -48,10 +48,10 @@ def read_surface(filename):
         img = sitk.ReadImage(filename)
         return sitk.GetArrayFromImage(img)
     elif extension == 'annot':
-        raise ValueError('Reader for extensions \'label\' not yet implemented')
+        raise ValueError('Reader for extensions \'annot\' not yet implemented')
 
     elif extension == 'label':
-        raise ValueError('Reader for extensions \'inflated\', \'pial\', \'white\' not yet implemented')
+        raise ValueError('Reader for extensions \'label\' not yet implemented')
 
     elif extension in ['inflated', 'pial', 'white']:
         coords, faces = io.read_geometry(filename)
@@ -67,13 +67,15 @@ def write_surface(image,filename):
         sitk.WriteImage(image,filename)
 
     elif extension == 'annot':
-        raise ValueError('Reader for extensions \'label\' not yet implemented')
+        print(type(image[1]))
+        io.write_annot(filename, image[0], image[1], image[2])
 
     elif extension == 'label':
-        raise ValueError('Reader for extensions \'inflated\', \'pial\', \'white\' not yet implemented')
+        raise ValueError('Reader for extensions \'label\' not yet implemented')
 
     elif extension in ['inflated', 'pial', 'white']:
         io.read_geometry(filename,image[0],image[1])
+
     else:
         return io.write_morph_data(filename,image)
 
@@ -366,12 +368,8 @@ class NiftiWriter(niiFile):
 class SurfaceWriter(object):
 
     def __init__(self,data, *args, **kwargs):
-        if len(data.shape) > 1:
-            self.data = data
-        else:
-            self.data = data[:,np.newaxis]
 
-        self.img = sitk.GetImageFromArray(self.data)
+        self.img = data
 
     def save(self, filepath, *args, **kwargs):
 
@@ -379,9 +377,8 @@ class SurfaceWriter(object):
         dname = dirname(filepath)
 
         filename = join(dname, bname)
-        write_surface(self.img, filename)
 
-        # io.write_morph_data(filename, self.data, *args, **kwargs)
+        write_surface(self.img, filename)
 
     def chunks(self, mem_usage=None, *args, **kwargs):
         try:
@@ -406,6 +403,9 @@ class ParameterWriter(object):
 
         filename = join(dname, bname)
         sitk.WriteImage(self.img, filename + '.mha')
+
+
+
 
 class Results(object):
 

@@ -805,7 +805,15 @@ class Processor(object):
                         for x, y, z in scc:
                             labels[x, y, z] = label
         else:
-            warnings.warn('Clusterize for surface still not implemented. This function is IDENTITY')
+            warnings.warn('Clusterize for surface still not implemented. This function only filters p-value for'
+                          'numeric threshold and no spatial threshold is applied')
+
+            fitscores = fitting_scores.copy()
+            if fit_upper_threshold is not None:
+                fitscores[np.where(fitting_scores<fit_upper_threshold)] = 0
+            if fit_lower_threshold is not None:
+                fitscores[np.where(fitting_scores>fit_lower_threshold)] = 0
+
 
 
 
@@ -1289,7 +1297,7 @@ class Processor(object):
 
         opt_final_list = []
         for index in index_list:
-            opt_final_list += opt_list[index]
+            opt_final_list.append(opt_list[index])
 
         return opt_final_list
 
@@ -1328,7 +1336,7 @@ class Processor(object):
             index_list = []
             index_list_str = s.split(',')
             for index in index_list_str:
-                index = int(index)
+                index = float(index)
                 index_list.append(index)
             return np.asarray(index_list)
 

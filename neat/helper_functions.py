@@ -408,6 +408,7 @@ def compute_fitting_scores(processor_instance, method_name, method_func, pparams
                     cluster_threshold=cluster_size,
                     produce_labels=False
                 )
+
             print('Converting p-values to Z-scores...')
             lim_value = norm.ppf(inv_p_threshold)
             valid_voxels = clusterized_fitting_scores != 0.0

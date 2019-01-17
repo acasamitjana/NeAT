@@ -110,6 +110,7 @@ class PolySVR(LinSVR):
         self._svr_C = C
         self._svr_epsilon = epsilon
         self._svr_intercept = intercept
+
         # Check features matrix
         self._svr_features = np.array(features)
         if len(self._svr_features.shape) != 2:
@@ -132,9 +133,6 @@ class PolySVR(LinSVR):
                 if deg < 1:
                     raise ValueError('All degrees must be >= 1')
             self._svr_degrees = degrees
-
-        # Check intercept term
-        self._svr_intercept = intercept
 
         # Call function to expand the feature space with polynomial terms
         self.__svr_polynomial_expansion()
@@ -191,7 +189,7 @@ class GaussianSVR(CurveFitter):
         num_variables = observations.shape[1]
 
         # Intercept handling
-        intercept = self._svr_intercept == CurveFitter.IncludeIntercept
+        intercept = self._svr_intercept
 
 
         # Predictors preprocessing

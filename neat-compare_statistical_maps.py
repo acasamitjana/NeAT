@@ -8,6 +8,19 @@ import nibabel as nib
 import numpy as np
 
 from neat.Utils.DataLoader import DataLoader
+from neat.helper_functions import volume_or_surface
+
+#dictionary for .annot
+DICT_CTAB = {
+    0: [0,0,0,0,0],
+    1: [255, 0, 0, 0, 1],
+    2: [0, 255, 0, 0, 2],
+    3: [255, 255, 0, 0, 3],
+    4: [0, 0, 255, 0, 4],
+    5: [255, 0, 255, 0, 5],
+    6: [0, 255, 255, 0, 6],
+    7: [255, 255, 255, 0, 7]
+}
 
 
 if __name__ == '__main__':
@@ -16,6 +29,7 @@ if __name__ == '__main__':
     COMPARISON_CHOICES = [
         'best',
         'rgb',
+        'diff',
         'absdiff',
         'se',
         'intersection'
@@ -51,6 +65,7 @@ if __name__ == '__main__':
     files = arguments.files
     name = arguments.name
 
+
     # Check if there are at least two files
     if len(files) < 2:
         print('The minimum number of files to be compared is two.')
@@ -71,7 +86,7 @@ if __name__ == '__main__':
         affine_matrix = data_loader.get_template_affine()
         output_dir = data_loader.get_output_dir()
         results_io = data_loader.get_results_io()
-
+        type_data = volume_or_surface(data_loader.get_extension())
 
     except KeyError:
         print()
@@ -139,11 +154,47 @@ if __name__ == '__main__':
             mask[valid_voxels, i] = 1
             fits[..., i] = data
 
+        print(np.where(np.sum(mask,axis=-1)==3))
+        if type_data == 'surf':
+            mask[..., 1] = mask[..., 1] * 2
+            mask[..., 2] = mask[..., 2] * 4
+            fits[..., 1] = fits[..., 1] * 2
+            fits[..., 2] = fits[..., 2] * 4
+            fits = np.sum(fits, axis=-1)
+            label_mask = np.sum(mask.astype(int), axis=-1)
+            list_names_mask = ['Background', files[0], files[1], files[0]+'_+_'+files[1]]
+            if len(nii_files)==3:
+                list_names_mask += [files[2], files[0] + '_+_' + files[2], files[1] + '_+_' + files[2], files[0] + '_+_' + files[1] + '_+_' + files[2]]
+
+            ctab_mask = np.empty((len(np.unique(label_mask)), 5))
+            names_mask = []
+            for it_l, l in enumerate(np.unique(label_mask)):
+                ctab_mask[it_l]=DICT_CTAB[l]
+                names_mask.append(list_names_mask[l])
+
+            print(ctab_mask)
+            mask = [label_mask,ctab_mask,names_mask]
+
+
         print('Storing comparison maps...')
         rgb_name = ('{}-rgb'+results_io.extension).format(name) if name else 'rgb'+results_io.extension
-        rgb_mask_name = ('{}-rgb_mask'+results_io.extension).format(name) if name else 'rgb_mask'+results_io.extension
+        if type_data == 'surf':
+            rgb_mask_name = ('{}-rgb_mask' + '.annot').format(name) if name else 'rgb_mask.annot'
+        else:
+            rgb_mask_name = ('{}-rgb_mask'+results_io.extension).format(name) if name else 'rgb_mask'+results_io.extension
         results_io.writer(fits, affine_matrix).save(path.join(output_dir, rgb_name))
         results_io.writer(mask, affine_matrix).save(path.join(output_dir, rgb_mask_name))
+
+    elif method == 'diff':
+        # Select first two files
+        first_file = nii_files[0].get_data()
+        second_file = nii_files[1].get_data()
+        print('Computing absolute difference map...')
+        diff = first_file - second_file
+        diff[np.where(diff==0)] = -100
+        print('Storing comparison maps...')
+        diff_name = ('{}-diff'+results_io.extension).format(name) if name else 'diff'+results_io.extension
+        results_io.writer(diff, affine_matrix).save(path.join(output_dir, diff_name))
 
     elif method == 'absdiff':
         # Select first two files

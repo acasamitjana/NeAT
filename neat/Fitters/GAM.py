@@ -18,10 +18,10 @@ class GAM(CurveFitter):
     Generalized Additive Model with non-parametric, smoothed components
     """
 
-    def __init__(self, covariate_smoothers=None, intercept=CurveFitter.IncludeIntercept):
+    def __init__(self, covariates=None, covariate_smoothers=None, intercept=CurveFitter.IncludeIntercept):
 
         if covariate_smoothers is None or not covariate_smoothers:
-            covariates = None
+            covariates = covariates
         else:
             covariates = covariate_smoothers.get_covariates()
 

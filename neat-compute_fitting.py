@@ -87,50 +87,55 @@ if __name__ == '__main__':
 
     """ CREATE PROCESSOR """
     # Create MixedProcessor instance
-    initial_category = categories[0] if (categories is not None and len(categories)) > 0 else None
-    # try:
-
-    if type_data == 'surf':
-        processor = MixedSurfaceProcessor(subjects,
-                                          covariate_names,
-                                          covariates,
-                                          processing_parameters,
-                                          user_defined_parameters=udp,
-                                          category=initial_category,
-                                          type_data=type_data)
-
-    elif type_data == 'vol':
-        processor = MixedVolumeProcessor(subjects,
-                                         covariate_names,
-                                         covariates,
-                                         processing_parameters,
-                                         user_defined_parameters=udp,
-                                         category=initial_category,
-                                         type_data=type_data)
-
-    else:
-        processor = MixedProcessor(subjects,
-                                   covariate_names,
-                                   covariates,
-                                   processing_parameters,
-                                   user_defined_parameters=udp,
-                                   category=initial_category,
-                                   type_data=type_data)
-    # User defined parameters
-    udp = processor.user_defined_parameters
-    print(udp)
-    # except ValueError:
-    #     print()
-    #     print("=" * 15)
-    #     print("===  ERROR  ===")
-    #     print("=" * 15)
-    #     print('The processor parameters are not correctly specified. \n'
-    #           'Check your user_defined_parameters file first '
-    #           'if you used one, and if that does not solve the issue, contact the developers.')
-    #     exit(1)
 
 
     if not categories:
+        """ CREATE PROCESSOR """
+        # Create MixedProcessor instance
+        initial_category = None
+        # try:
+        # Create processor for this category
+        if type_data == 'surf':
+            processor = MixedSurfaceProcessor(subjects,
+                                              covariate_names,
+                                              covariates,
+                                              processing_parameters,
+                                              user_defined_parameters=udp,
+                                              category=initial_category,
+                                              type_data=type_data)
+
+        elif type_data == 'vol':
+            processor = MixedVolumeProcessor(subjects,
+                                             covariate_names,
+                                             covariates,
+                                             processing_parameters,
+                                             user_defined_parameters=udp,
+                                             category=initial_category,
+                                             type_data=type_data)
+
+        else:
+            processor = MixedProcessor(subjects,
+                                       covariate_names,
+                                       covariates,
+                                       processing_parameters,
+                                       user_defined_parameters=udp,
+                                       category=initial_category,
+                                       type_data=type_data)
+
+        # User defined parameters
+        udp = processor.user_defined_parameters
+        print(udp)
+
+        # except ValueError:
+        #     print()
+        #     print("=" * 15)
+        #     print("===  ERROR  ===")
+        #     print("=" * 15)
+        #     print('The processor parameters are not correctly specified. \n'
+        #           'Check your user_defined_parameters file first '
+        #           'if you used one, and if that does not solve the issue, contact the developers.')
+        #     exit(1)
+
         # Processor name
         processor_name = processor.get_name()
 
@@ -174,17 +179,50 @@ if __name__ == '__main__':
     else:
         # Process each category
         for category in categories:
+            try:
+                """ CREATE PROCESSOR """
+                # Create MixedProcessor instance
+                # Create processor for this category
+                if type_data == 'surf':
+                    processor = MixedSurfaceProcessor(subjects,
+                                                      covariate_names,
+                                                      covariates,
+                                                      processing_parameters,
+                                                      user_defined_parameters=udp,
+                                                      category=category,
+                                                      type_data=type_data)
 
-            # Create processor for this category
-            processor = MixedProcessor(subjects,
-                                       predictors_names,
-                                       correctors_names,
-                                       predictors,
-                                       correctors,
-                                       processing_parameters,
-                                       category=category,
-                                       user_defined_parameters=udp,
-                                       type_data=type_data)
+                elif type_data == 'vol':
+                    processor = MixedVolumeProcessor(subjects,
+                                                     covariate_names,
+                                                     covariates,
+                                                     processing_parameters,
+                                                     user_defined_parameters=udp,
+                                                     category=category,
+                                                     type_data=type_data)
+
+                else:
+                    processor = MixedProcessor(subjects,
+                                               covariate_names,
+                                               covariates,
+                                               processing_parameters,
+                                               user_defined_parameters=udp,
+                                               category=category,
+                                               type_data=type_data)
+
+                # User defined parameters
+                udp = processor.user_defined_parameters
+                print(udp)
+
+            except ValueError:
+                print()
+                print("=" * 15)
+                print("===  ERROR  ===")
+                print("=" * 15)
+                print('The processor parameters are not correctly specified. \n'
+                      'Check your user_defined_parameters file first '
+                      'if you used one, and if that does not solve the issue, contact the developers.')
+                exit(1)
 
             # Processor name
             processor_name = processor.get_name()

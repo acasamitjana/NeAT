@@ -124,6 +124,9 @@ class Subject(object):
         return list(map(lambda name: self._parameters[name], parameter_names))
 
 
+class Subject_longitudinal(Subject):
+    pass
+
 class Chunks:
     """
     Class that lets you load the data in small chunks to have better memory performance

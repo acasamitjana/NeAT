@@ -109,7 +109,6 @@ class CurveFitterLongitudinal(CurveFitter):
         self.groups = groups
 
         C = self._crvfitter_correctors.shape[1]
-        C_re = self._crvfitter_correctors_re.shape[1]
         R = self._crvfitter_predictors.shape[1]
         self._crvfitter_correction_parameters = np.zeros((C, 0))
         self._crvfitter_prediction_parameters = np.zeros((R, 0))
@@ -140,8 +139,7 @@ class CurveFitterLongitudinal(CurveFitter):
         '''
         obs = np.array(observations, dtype=np.float64)
         dims = obs.shape
-        print(dims)
-        print(self._crvfitter_predictors.shape)
+
         self._crvfitter_dims = dims[1:]
         if dims[0] != self._crvfitter_predictors.shape[0]:
             raise ValueError('Observations and features (correctors and/or predictors) have incompatible sizes')
@@ -151,12 +149,13 @@ class CurveFitterLongitudinal(CurveFitter):
 
         obs = obs.reshape(dims[0], -1)
         self._crvfitter_correction_parameters, self._crvfitter_prediction_parameters = self.__fit__(
-            self._crvfitter_correctors, self._crvfitter_predictors, obs, *args, **kwargs)
+            self._crvfitter_correctors, self._crvfitter_correctors_re, self.groups,
+            self._crvfitter_predictors,  obs, *args, **kwargs)
         return self
 
 
 
-class GLME(PolyGLM):
+class CurveFitterLongitudinal(PolyGLM):
     ''' Class that implements the General Linear Mixed Effects Model.
 
         This method assumes the following situation:

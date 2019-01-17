@@ -101,6 +101,7 @@ class MixedProcessor(Processor):
                         category_index = [i for i, x in enumerate(all_categories) if x == category]
                         selected_predictors = self._processor_covariates[category_index, it_covariate]
                         covariates_array[category_index, it_m] = selected_predictors
+                        print(selected_predictors)
                         it_m+=1
                 else:
                     covariates_array[:, it_m] = self._processor_covariates[:, it_covariate]
@@ -111,12 +112,16 @@ class MixedProcessor(Processor):
             original_covariates_names = self._processor_covariates_names
             covariates_names = []
             for it_cov_name, cov_name in enumerate(original_covariates_names):
-                if it_cov_name in self._separate_covariates_by_category_list:
+                if cov_name in self._separate_covariates_by_category_list:
                     covariates_names += [
                         cov_name + ' (category {})'.format(cat) for cat in category_list
                         ]
                 else:
                     covariates_names += [cov_name]
+
+            self._processor_covariates_names = covariates_names
+            self._processor_covariates = covariates_array
+
         else:
             covariates_names = self._processor_covariates_names
 
@@ -139,11 +144,10 @@ class MixedProcessor(Processor):
         #Covariate
 
         treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]
-
+        treat_data(self)
         predictors = np.dot(self.covariates,contrast)
         correctors = np.dot(self.covariates,contrast_null)
         self._processor_covariates = np.concatenate((correctors, predictors),axis=1)
-        treat_data(self)
         self._processor_correctors, self._processor_predictors = self.covariates[:,:-number_of_contrasts],self.covariates[:,-number_of_contrasts:]
 
 
@@ -244,12 +248,13 @@ class MixedProcessor(Processor):
                 original_covariates_names = covariates_names
                 covariates_names = []
                 for it_cov_name, cov_name in enumerate(original_covariates_names):
-                    if it_cov_name in separate_covariates_by_category_list:
+                    if cov_name in separate_covariates_by_category_list:
                         covariates_names += [
                             cov_name + ' (category {})'.format(cat) for cat in category_list
                         ]
                     else:
                         covariates_names += [cov_name]
+
 
         print()
         print("--------------------------------")
@@ -1443,9 +1448,9 @@ class MixedSurfaceProcessor(MixedProcessor):
             cdata = chunk.data
             dx = cdata.shape[-1]
 
-            corrected_data[:, x:(x + dx)] = self.__corrected_values__(self._processor_fitter,
-                                                                           cdata, correction_parameters[:, x:(x + dx)],
-                                                                           *args, **kwargs)
+            corrected_data[:, x:(x + dx)] = self.__corrected_values__(cdata,
+                                                                      correction_parameters[:, x:(x + dx)],
+                                                                      *args, **kwargs)
         return corrected_data
 
 
