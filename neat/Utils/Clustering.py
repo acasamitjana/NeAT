@@ -3,11 +3,14 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import euclidean_distances
 from matplotlib import pyplot as plt
 import os
+import matplotlib
 
 if 'DISPLAY' not in os.environ.keys():
     plt.switch_backend('Agg')
+elif os.environ['DISPLAY'] == 'localhost:13.0':
+    plt.switch_backend('Agg')
 
-
+print(matplotlib.get_backend())
 def distn(p1, p2, degree):
     return euclidean_distances(np.diff(p1, n=degree, axis=1), np.diff(p2, n=degree, axis=1))
 
@@ -47,8 +50,8 @@ def recurssiveclustering(centroids, imageLabels, cluster_size, labels, n_cluster
                     updatedLabels[j] = labelslist[majorClusterIndex]
             labelslist = np.delete(labelslist, minorClusterIndex)
             numberOfClusters -= 1
-            centroidsDistances = distn(updatedCentroids, updatedCentroids, 0) \
-                                 + 10000 * np.eye(updatedCentroids.shape[0])
+            centroidsDistances = 0.2 * distn(updatedCentroids, updatedCentroids, 0) + 0.8 * distn(updatedCentroids, updatedCentroids, 1) + \
+                                 0.4 * distn(updatedCentroids, updatedCentroids, 2) + 10000 * np.eye(updatedCentroids.shape[0])
     return updatedCentroids, updatedLabels, cluster_size
 
 def generatecurvespng(representatives, dataSet, labels, imagelabels, x_axis=None, x_axis_name=None):
