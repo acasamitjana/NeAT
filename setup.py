@@ -1,16 +1,16 @@
 from distutils.core import setup
 
 setup(
-    name='VNeAT',
+    name='NeAT',
     version='0.0.0',
-    packages=['vneat', 'vneat.Utils', 'vneat.Fitters', 'vneat.FitScores', 'vneat.Processors', 'vneat.Visualization',
-              'vneat.CrossValidation'],
-    scripts=['vneat-compare_statistical_maps.py', 'vneat-compute_fitting.py', 'vneat-compute_statistical_maps.py',
-             'vneat-generate_user_parameters.py', 'vneat-search_hyperparameters.py', 'vneat-show_curves.py',
-             'vneat-show_data_distribution.py', 'vneat-show_visualizer.py'],
+    packages=['neat', 'neat.Utils', 'neat.Fitters', 'neat.FitScores', 'neat.Processors', 'neat.Visualization',
+              'neat.CrossValidation'],
+    scripts=['neat-compare_statistical_maps.py', 'neat-compute_fitting.py', 'neat-compute_statistical_maps.py',
+             'neat-generate_user_parameters.py', 'neat-search_hyperparameters.py', 'neat-show_curves.py',
+             'neat-show_data_distribution.py', 'neat-show_visualizer.py'],
     url='',
     license='MIT',
     author='Image Processing Group',
-    author_email='santiago.puch@alu-etsetb.upc.edu',
+    author_email='adria.casamitjana@upc.es',
     description=''
 )

@@ -14,11 +14,14 @@ if __name__ == '__main__':
 
     """ CONSTANTS """
     AVAILABLE_COLORS = [
+        'r',
+        'y',
+        'g',
         '#34314c',
-        '#ff7473',
         '#58C9B9',
         '#E71D36',
-        '#9055A2'
+        '#9055A2',
+        '#ff7473',
     ]
     AVAILABLE_MARKERS = [
         'v',
@@ -59,7 +62,7 @@ if __name__ == '__main__':
     dirs = arguments.dirs
     compare = arguments.compare
     hemi = HEMI_CHOICE[arguments.hemi]
-
+    save = False
 
     """ LOAD DATA USING DATALOADER """
     subjects, covariate_names, covariates, processing_parameters, affine_matrix, output_dir, \
@@ -222,13 +225,17 @@ if __name__ == '__main__':
             # Plot data points
             category = processors[i].category
             label = 'Category ' + str(category) if category is not None else 'All subjects'
+            if compare:
+                scatter_color = 'k'
+            else:
+                scatter_color = AVAILABLE_COLORS[i]
             plt.scatter(
                 processors[i].predictors,
                 corrected_data,
                 label=label,
-                s=50,
-                color=AVAILABLE_COLORS[color_counter],
-                marker=AVAILABLE_MARKERS[color_counter]
+                s=25,
+                color=scatter_color,
+                marker=AVAILABLE_MARKERS[i]
             )
 
             # Plot
@@ -237,12 +244,12 @@ if __name__ == '__main__':
                 curve[:, 0],
                 label=names[i],
                 lw=2,
-                color=AVAILABLE_COLORS[color_counter]
+                color=AVAILABLE_COLORS[i]
             )
 
 
             # Next color
-            color_counter = color_counter + 1 if ((color_counter + 1) % len(AVAILABLE_COLORS)) != 0 else 0
+            # color_counter = color_counter + 1 if ((color_counter + 1) % len(AVAILABLE_COLORS)) != 0 else 0
             # Plot info
             plt.legend(fontsize='x-small')
             plt.xlabel(processors[i].predictor_names[0], fontsize='xx-large')
@@ -267,18 +274,27 @@ if __name__ == '__main__':
             elif backend == 'wxAgg':
                 mng = plt.get_current_fig_manager()
                 mng.frame.Maximize(True)
+            else:
+                save = True
+
 
             # Show current curve in tight mode if compare mode is off
             if not compare:
                 plt.tight_layout()
                 plt.show()
                 print()
+                if save:
+                    plt.savefig(path.join(output_dir, dirs[i],'voxel_' +str(x) + '.png'))
+                    plt.close()
 
         # Show all curves in tight mode if compare mode is on
         if compare:
             plt.tight_layout()
             plt.show()
             print()
+            if save:
+                plt.savefig(path.join(output_dir, 'voxel_' + str(x) + '.png'))
+                plt.close()
 
         # except Exception as e:
         #     print('[ERROR] Unexpected error occurred while computing and showing the results:')

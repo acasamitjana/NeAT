@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics import silhouette_score
+
 from matplotlib import pyplot as plt
 import os
 import matplotlib
@@ -11,6 +13,7 @@ elif os.environ['DISPLAY'] == 'localhost:13.0':
     plt.switch_backend('Agg')
 
 print(matplotlib.get_backend())
+
 def distn(p1, p2, degree):
     return euclidean_distances(np.diff(p1, n=degree, axis=1), np.diff(p2, n=degree, axis=1))
 
@@ -96,6 +99,22 @@ def generate_brain_labels(labels, posinfo, template_array):
         image_labels[posinfo[i, 0].astype(int), posinfo[i, 1].astype(int), posinfo[i, 2].astype(int)] = labels[i]+1
     return image_labels
 
+def within_cluster_variance(X, centroids, c_labels):
+    within_var = []
+    for it_i in np.unique(c_labels):
+        idx = np.where(c_labels == it_i)[0]
+        within_var.append(np.sum((X[idx] - centroids[it_i])**2))
+
+    return within_var
+
+def between_cluster_variance(X, centroid, c_labels):
+    x_mean = np.mean(X,axis=0)
+    between_var = 0
+    for it_i in np.unique(c_labels):
+        n = np.where(c_labels == it_i)[0].shape[0]
+        between_var += n*np.sum((centroid[it_i]-x_mean)**2)
+
+    return between_var
 
 class HierarchicalClustering(object):
 
@@ -104,7 +123,7 @@ class HierarchicalClustering(object):
         self.template = template
         self._name = 'hierarchical'
 
-    def clusterize(self, curves, index_matrix, x_axis=None, x_axis_name=None):
+    def clusterize(self, curves, index_matrix, x_axis=None, x_axis_name=None, compute0_results1=1):
 
         n_curves = curves.shape[1]
         precomputedDistances = 0.2 * distn(curves, curves, 0) + 0.8 * distn(curves, curves, 1) + \
@@ -121,17 +140,27 @@ class HierarchicalClustering(object):
             representatives[i] = np.mean(curves[auxlist], axis=0)
             cluster_size[i] = auxlist.shape[0]
 
-        image_labels = generate_brain_labels(agglomerative.labels_, index_matrix, self.template)
-        clustering_name = 'clusteringlabels_' + str(self.n_clusters) + '_' + self._name
-        results = [(clustering_name, image_labels)]
+        if compute0_results1 == 0:
+            between_var = between_cluster_variance(curves, representatives, agglomerative.labels_)
+            within_var = within_cluster_variance(curves, representatives, agglomerative.labels_)
+            silhouette_avg = silhouette_score(curves, agglomerative.labels_) if self.n_clusters > 1 else 0
 
-        png_figure = generatecurvespng(representatives=representatives, dataSet=curves,
-                                       labels=np.unique(agglomerative.labels_), imagelabels=agglomerative.labels_,
-                                       x_axis=x_axis, x_axis_name=x_axis_name)
-        png_name = 'clusteringcurves_' + str(self.n_clusters) + '_' + self._name
-        png_tuple = [(png_name, png_figure)]
+            return between_var, within_var, silhouette_avg
 
-        return results, png_tuple
+        if compute0_results1 == 1:
+            png_figure = generatecurvespng(representatives=representatives, dataSet=curves,
+                                           labels=np.unique(agglomerative.labels_), imagelabels=agglomerative.labels_,
+                                           x_axis=x_axis, x_axis_name=x_axis_name)
+
+            png_name = 'clusteringcurves_' + str(self.n_clusters) + '_' + self._name
+            png_tuple = [(png_name, png_figure)]
+
+            image_labels = generate_brain_labels(agglomerative.labels_, index_matrix, self.template)
+            clustering_name = 'clusteringlabels_' + str(self.n_clusters) + '_' + self._name
+            results = [(clustering_name, image_labels)]
+
+
+            return results, png_tuple
 
 
 class RecursiveClustering(object):

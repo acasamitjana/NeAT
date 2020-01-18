@@ -140,7 +140,6 @@ class MixedProcessor(Processor):
                 contrast_null[:,it_cn] = contrast_null_full[:,it_l]
                 it_cn +=1
 
-
         #Covariate
 
         treat_data = MixedProcessor._mixedprocessor_perp_norm_options_list[self._perp_norm_option]

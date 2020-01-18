@@ -155,6 +155,7 @@ class Chunks:
         mem_usage : [Optional] int
             Number of MB of memory reserved to store the chunk
             Default value: 512
+
         """
 
         if mem_usage is None:

@@ -621,9 +621,67 @@ anova.requires('df_prediction',
                'Constant or matrix of shape (X1, ..., Xn) indicating the degrees of freedom of the prediction '
                'model alone (without the correctors) for all variables (constant case) or each variable (matrix case).')
 
+# @evaluation_function
+# def r2(self):
+#     """
+#     Evaluates the significance of the predictors as regards the behaviour of the observations by computing
+#     the value of the F-statistic for a test in which the null hypothesis states that the predictors do not
+#     explain the variation of the observations at all. The calculated F-statistic value compares the variance
+#     of the prediction error with the variance of the corrected data, WITHOUT then mapping the result to its
+#     corresponding p-value (which takes into account the degrees of freedom of both, the corrected data and
+#     the prediction error). Please, refer to the "ftest" method if what you wish is a p-value related measure
+#     rather than the F-statistic itself.
+#     """
+#     corrected_data = self.corrected_data()
+#
+#     # Get the error obtained when using the full model (correctors + predictors)
+#     # prediction = self.__predict__(predictors, prediction_parameters)
+#
+#     # prediction_error = corrected_data - prediction
+#     prediction_error = corrected_data - self.predicted_data()
+#
+#     # Now compare the variances of the errors
+#
+#     # Residual Sum of Squares for restricted model
+#     rss1 = (corrected_data ** 2).sum(axis=0)
+#
+#     # Residual Sum of Squares for full model
+#     rss2 = (prediction_error ** 2).sum(axis=0)
+#
+#     # Degrees of freedom
+#     dfc = self.df_correction()
+#     dfp = self.df_prediction()
+#
+#     n = corrected_data.shape[0]
+#     df1 = dfp  # degrees of freedom of rss1 - rss2
+#     df2 = n - dfc - dfp  # degrees of freedom of rss2
+#
+#     # Compute f-scores
+#     var1 = (rss1 - rss2) / df1
+#     var2 = rss2 / df2
+#     f_score = var1 / var2
+#     r2_score = f_score / (f_score + df2/df1)
+#     return r2_score
+#
+# r2.requires('corrected_data',
+#                'Matrix of shape (N, X1, ..., Xn) that contains the observations after having subtracted the '
+#                'contribution of the correctors, where N is the number of subjects/samples and M = X1*...*Xn '
+#                'the number of variables.')
+# r2.requires('predicted_data',
+#                'Matrix of shape (N, X1, ..., Xn) that contains the prediction performed by the fitter on the '
+#                'corrected observations, where N is the number of subjects/samples and M = X1*...*Xn the number '
+#                'of variables.')
+# r2.requires('df_correction',
+#                'Constant or matrix of shape (X1, ..., Xn) indicating the degrees of freedom of the correction '
+#                'model alone (without the predictors) for all variables (constant case) or each variable (matrix case).')
+# r2.requires('df_prediction',
+#                'Constant or matrix of shape (X1, ..., Xn) indicating the degrees of freedom of the prediction '
+#                'model alone (without the correctors) for all variables (constant case) or each variable (matrix case).')
+#
+
 
 @evaluation_function
-def fstat(self, contrast):
+def fstat(self):
     """
     Evaluates the significance of the predictors as regards the behaviour of the observations by computing
     the value of the F-statistic for a test in which the null hypothesis states that the predictors do not

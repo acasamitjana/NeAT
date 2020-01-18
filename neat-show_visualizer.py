@@ -79,6 +79,7 @@ if __name__ == '__main__':
     output_dir, results_io, type_data = helper_functions.load_data_from_config_file(config_file)
     template = helper_functions.load_template_from_config_file(config_file)
 
+
     """ INIT VISUALIZER """
     if type_data == 'vol':
         visualizer = GUIVisualizer(template=template, affine=affine_matrix, num_points=n_points)
@@ -164,11 +165,12 @@ if __name__ == '__main__':
         if len(pathname) == 0:
             print('{} does not exist or contain any result.'.format(full_path))
             continue
-
+        covariates_tmp = covariates
         n, cat, pred_p, corr_p, proc = helper_functions.get_results_from_path(
-            pathname[0], results_io, subjects, covariate_names, covariates,
+            pathname[0], results_io, subjects, covariate_names, covariates_tmp,
             processing_parameters, type_data
         )
+
 
         plot_label = '{} / '.format(n)
         plot_label += cat if cat is not None else 'All subjects'

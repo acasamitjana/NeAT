@@ -11,6 +11,7 @@ from neat.Utils.Subject import Chunks
 from neat.Utils.graphlib import NiftiGraph
 
 import warnings
+import copy
 
 class Processor(object):
     """
@@ -79,7 +80,7 @@ class Processor(object):
         # Load predictors and correctors' names
         self._processor_covariates_names = covariates_names
         # Load predictors and correctors
-        self._processor_covariates = covariates
+        self._processor_covariates = copy.copy(covariates)
         # Load processing parameters
         self._processor_processing_params = processing_parameters
 
@@ -957,7 +958,6 @@ class Processor(object):
 
             for j in range(i + 1, C):  # for j > i
                 v_j = self.covariates[:, j]
-
                 D[i, j] = u_i.dot(v_j) / norm_sq  # D[i, j] = < u_i, v_j > / < u_i, u_i >, if i < j
                 v_j -= D[i, j] * u_i  # Orthogonalize v_j with respect to u_i (Gram-Schmidt, iterating over j instead of i)
 

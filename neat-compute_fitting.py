@@ -50,7 +50,6 @@ if __name__ == '__main__':
     """ LOAD DATA USING DATALOADER """
     subjects, covariate_names, covariates, processing_parameters,  affine_matrix, output_dir, \
     results_io, type_data = helper_functions.load_data_from_config_file(config_file)
-
     if type_data == 'surf':
         if hemi == '':
             raise ValueError('Please, specify the hemisphere for surface-based analysis. See arguments.')
@@ -93,48 +92,47 @@ if __name__ == '__main__':
         """ CREATE PROCESSOR """
         # Create MixedProcessor instance
         initial_category = None
-        # try:
-        # Create processor for this category
-        if type_data == 'surf':
-            processor = MixedSurfaceProcessor(subjects,
-                                              covariate_names,
-                                              covariates,
-                                              processing_parameters,
-                                              user_defined_parameters=udp,
-                                              category=initial_category,
-                                              type_data=type_data)
+        try:
+            # Create processor for this category
+            if type_data == 'surf':
+                processor = MixedSurfaceProcessor(subjects,
+                                                  covariate_names,
+                                                  covariates,
+                                                  processing_parameters,
+                                                  user_defined_parameters=udp,
+                                                  category=initial_category,
+                                                  type_data=type_data)
 
-        elif type_data == 'vol':
-            processor = MixedVolumeProcessor(subjects,
-                                             covariate_names,
-                                             covariates,
-                                             processing_parameters,
-                                             user_defined_parameters=udp,
-                                             category=initial_category,
-                                             type_data=type_data)
+            elif type_data == 'vol':
+                processor = MixedVolumeProcessor(subjects,
+                                                 covariate_names,
+                                                 covariates,
+                                                 processing_parameters,
+                                                 user_defined_parameters=udp,
+                                                 category=initial_category,
+                                                 type_data=type_data)
 
-        else:
-            processor = MixedProcessor(subjects,
-                                       covariate_names,
-                                       covariates,
-                                       processing_parameters,
-                                       user_defined_parameters=udp,
-                                       category=initial_category,
-                                       type_data=type_data)
+            else:
+                processor = MixedProcessor(subjects,
+                                           covariate_names,
+                                           covariates,
+                                           processing_parameters,
+                                           user_defined_parameters=udp,
+                                           category=initial_category,
+                                           type_data=type_data)
 
-        # User defined parameters
-        udp = processor.user_defined_parameters
-        print(udp)
-
-        # except ValueError:
-        #     print()
-        #     print("=" * 15)
-        #     print("===  ERROR  ===")
-        #     print("=" * 15)
-        #     print('The processor parameters are not correctly specified. \n'
-        #           'Check your user_defined_parameters file first '
-        #           'if you used one, and if that does not solve the issue, contact the developers.')
-        #     exit(1)
+            # User defined parameters
+            udp = processor.user_defined_parameters
+            print(udp)
+        except ValueError:
+            print()
+            print("=" * 15)
+            print("===  ERROR  ===")
+            print("=" * 15)
+            print('The processor parameters are not correctly specified. \n'
+                  'Check your user_defined_parameters file first '
+                  'if you used one, and if that does not solve the issue, contact the developers.')
+            exit(1)
 
         # Processor name
         processor_name = processor.get_name()

@@ -138,6 +138,7 @@ class ParameterReader:
 
 class NiftiReader:
     def __init__(self, filename, x1=0, y1=0, z1=0, x2=None, y2=None, z2=None):
+        # x1,y1,z1 can be int () or list ()
         self.filename = filename
         f = nib.load(filename)
         self.niiImage = f

@@ -181,24 +181,20 @@ class GUIVisualizer(object):
         if len(self._images) > 0:
             if self._images[-1][1] != 'rgb':
                 cmap = cm.get_cmap(self._images[-1][1])
-                n_colors_list = [0] + [i*int(cmap.N/(len(self._processors)-1)) - 1 for i in range(1,len(self._processors))]
+                n_colors_list = [i/len(self._processors)  for i in range(1,len(self._processors)+1)]#[0] + [i*int(cmap.N/(len(self._processors)-1)) - 1 for i in range(1,len(self._processors))]
             else:
                 cmap = lambda x: [(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0)][x]
                 n_colors_list = list(range(len(self._processors)))
 
             colors = [cmap(i) for i in n_colors_list]
-
         else:
-
             colors = ['b','r','g','k','y','c','m',]
 
-        if self._correction_processor is not None:
-            correction_processor, correction_parameters = self._correction_processor
-            cdata = correction_processor.corrected_values(correction_parameters,
-                                                          x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1)
-            self._ax[1, 1].scatter(correction_processor.predictors[:, 0], cdata[:, 0, 0, 0], marker='o', s=3)
-
-
+        # if self._correction_processor is not None:
+        #     correction_processor, correction_parameters = self._correction_processor
+        #     cdata = correction_processor.corrected_values(correction_parameters,
+        #                                                   x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1)
+        #     self._ax[1, 1].scatter(correction_processor.predictors[:, 0], cdata[:, 0, 0, 0], marker='o', s=3)
 
         for processor, prediction_parameters, correction_parameters, label in self._processors:
             if correction_parameters is not None:
@@ -206,10 +202,10 @@ class GUIVisualizer(object):
                                                    x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1
                                                    )
             else:
+
                 cdata = processor.get_observations(x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1)
 
             self._ax[1, 1].scatter(processor.predictors[:, 0], cdata[:, 0, 0, 0], marker='o', c=colors[0], s=3 )
-
             axis, curve = processor.curve(prediction_parameters,
                                           x1=x, x2=x + 1, y1=y, y2=y + 1, z1=z, z2=z + 1, tpoints=self._num_points
                                           )
@@ -282,7 +278,6 @@ class GUIVisualizer(object):
         self._rgba_image = cmap(self._template)
 
         for img, cmap in self._images:
-
             if cmap != 'rgb':
                 cmap = cm.get_cmap(cmap)
                 img = cmap(img)

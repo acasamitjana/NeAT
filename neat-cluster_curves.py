@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
 
     # Initialize Clustering Algorithm
-    n_clusters = 6
+    n_clusters = 2
     n_clusters_prestep = 40
     cluster_technique = HierarchicalClustering(n_clusters, template=template)
     # cluster_technique = RecursiveClustering(n_clusters, template=template, n_clusters_hierarchical=n_clusters_prestep)
