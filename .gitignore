@@ -1,6 +1,14 @@
 # Jetbrains products
 .idea
 
+# Scripts
+neat-cluster_search_number.py
+neat-compute_fitting_longitudinal.py
+neat-create_ROI_atlas.py
+neat-show_surface_visualizer.py
+read_curves.py
+read_curves_wholebrain.py
+
 # Pyc
 *.pyc
 
