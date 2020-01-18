@@ -51,6 +51,9 @@ dist/
 
 #Test results
 tests/mock_data/results/
+<<<<<<< HEAD
 
 # LICENSE
 LICENSE.txt
+=======
+>>>>>>> e57b9f136dc26bcd0b439ef1d4ec65597172f8dc
